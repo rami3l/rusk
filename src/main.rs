@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::iter::FromIterator;
 use std::rc::Rc;
 // use std::cell::RefCell;
 
@@ -7,7 +8,7 @@ extern crate lazy_static;
 
 macro_rules! apply {
     // def apply(func, args): return func(args)
-    ($func:expr, $args: expr)  => {
+    ($func:expr, $args: expr) => {
         $func($args)
     };
 }
@@ -16,12 +17,13 @@ macro_rules! apply {
 
 #[derive(Clone)]
 enum Exp<'a> {
+    // TODO: implement Display trait
     Bool(bool),
     Symbol(String),
-    Number(f64),         // ! int unimplemented
+    Number(f64),             // ! int unimplemented
     List(VecDeque<Exp<'a>>), // also used as AST
     Closure(ScmClosure<'a>),
-    Primitive(fn(&[Exp<'a>]) -> Option<Exp<'a>>),
+    Primitive(fn(&[Exp<'a>]) -> Result<Exp<'a>, ScmErr>),
     Empty,
 }
 
@@ -173,37 +175,36 @@ fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
     gen_ast(&mut tokenize(str_exp))
 }
 
-
 // * Primitive operators
 
 // All primitive operators are fn(&[Exp]) -> Option<Exp>
 // in order to fit into Exp::Primitive(fn(&[Exp]) -> Option<Exp>)
 
-fn add<'a>(pair: &[Exp<'a>]) -> Option<Exp<'a>> {
+fn add<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Some(Exp::Number(a+b)),
-        _ => None,
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a + b)),
+        _ => Err(ScmErr::from("add: expected Exp::Number")),
     }
 }
 
-fn sub<'a>(pair: &[Exp<'a>]) -> Option<Exp<'a>> {
+fn sub<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Some(Exp::Number(a-b)),
-        _ => None,
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a - b)),
+        _ => Err(ScmErr::from("sub: expected Exp::Number")),
     }
 }
 
-fn mul<'a>(pair: &[Exp<'a>]) -> Option<Exp<'a>> {
+fn mul<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Some(Exp::Number(a*b)),
-        _ => None,
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a * b)),
+        _ => Err(ScmErr::from("mul: expected Exp::Number")),
     }
 }
 
-fn div<'a>(pair: &[Exp<'a>]) -> Option<Exp<'a>> {
+fn div<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Some(Exp::Number(a-b)),
-        _ => None,
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a / b)),
+        _ => Err(ScmErr::from("div: expected Exp::Number")),
     }
 }
 
@@ -226,7 +227,6 @@ lazy_static! {
     static ref GLOBAL_ENV: Env<'static> = get_prelude();
 }
 
-
 fn eval<'a>(exp: Exp<'a>, env: Env<'a>) -> Result<Exp<'a>, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
@@ -237,10 +237,12 @@ fn eval<'a>(exp: Exp<'a>, env: Env<'a>) -> Result<Exp<'a>, ScmErr> {
                 // TODO: detailed info
             }
         }
-        Exp::List(list) => {
-            if let Exp::Symbol(head) = &list[0] {
+        Exp::List(deque) => {
+            let list: Vec<Exp> = deque.iter().map(|x| *x).collect();
+            let Exp::Symbol(head) = &list[0];
+            let tail = &list[1..];
             match head.as_ref() {
-                "quote" => Ok(list[1]),
+                "quote" => Ok(tail[0]),
 
                 "lambda" => {
                     let closure_env = Env::new(Some(&env));
@@ -252,28 +254,69 @@ fn eval<'a>(exp: Exp<'a>, env: Env<'a>) -> Result<Exp<'a>, ScmErr> {
                 }
 
                 "define" => {
-                    let Exp::Symbol(symbol) = &list[1]; // ! unpacking
-                    let definition = &list[2];
-                    env.data.insert(*symbol, eval(*definition, env).unwrap());
-                    println!("Symbol defined");
+                    let Exp::Symbol(symbol) = tail[0]; // ! unpacking
+                    let definition = tail[1];
+                    env.data.insert(symbol, eval(definition, env).unwrap());
+                    println!(">> Symbol defined");
                     // TODO: detailed info
                     Ok(Exp::Empty)
                 }
 
                 "if" => {
-                    let condition = &list[1];
-                    let then_ = &list[2];
-                    let else_ = &list[3];
+                    let [condition, then_, else_] = *tail;
                     // return eval(then_ if eval(condition, env) else else_, env)
+                    match eval(condition, env) {
+                        Ok(Exp::Bool(true)) => eval(then_, env),
+                        Ok(Exp::Bool(false)) => eval(else_, env),
+                        _ => Err(ScmErr::from("if: expected Exp::Bool")),
+                    }
                 }
 
-                _ => Err(ScmErr::from("Unknown keyword")),
-            }}
-            else {
-                Err(ScmErr::from("Expected a Symbol head for a List"))
+                "cond" => {
+                    for &item in tail {
+                        let Exp::List(pair) = item;
+                        let pair: Vec<_> = Vec::from_iter(pair.iter());
+                        let [&condition, &then_] = &pair[..];
+                        match eval(condition, env) {
+                            Ok(Exp::Bool(true)) => return eval(then_, env),
+                            Ok(Exp::Bool(false)) => continue,
+                            Ok(Exp::Symbol(symbol)) => match symbol.as_ref() {
+                                "else" => return eval(then_, env),
+                                _ => continue,
+                            },
+                            _ => return Err(ScmErr::from("cond: expected Exp::Bool")),
+                        }
+                    }
+                    Err(ScmErr::from("Missing else clause"))
+                }
+
+                "set!" => {
+                    let [symbol, definition] = *tail;
+                    let target = match env.find(&symbol) {
+                        Some(&res) => &mut res,
+                        None => &mut env,
+                    };
+                    let Exp::Symbol(key) = symbol;
+                    target.data.insert(key, eval(definition, env).unwrap());
+                    println!(">> Symbol set");
+                    // TODO: detailed info
+                    Ok(Exp::Empty)
+                }
+
+                _ => {
+                    let func = eval(Exp::Symbol(*head), env).unwrap();
+                    let args: Vec<Exp> = tail.iter().map(|i| eval(*i, env).unwrap()).collect();
+                    apply_scm(func, &args[..])
+                }
             }
         }
+        _ => Err(ScmErr::from("eval: expected Exp")),
     }
+}
+
+fn apply_scm() {
+    // TODO: implement this function
+    // func can be Exp::Primitive or Exp::Closure
 }
 
 fn main() {
