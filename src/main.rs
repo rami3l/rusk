@@ -3,8 +3,8 @@ use std::iter::FromIterator;
 use std::rc::Rc;
 // use std::cell::RefCell;
 
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use]
+// extern crate lazy_static;
 
 macro_rules! apply {
     // def apply(func, args): return func(args)
@@ -118,7 +118,7 @@ fn cons(x: &Exp, y: &Vec<Exp>) -> Option<Exp> {
 
 // * Parsing
 
-fn tokenize(str_exp: &str) -> VecDeque<String> {
+fn tokenize(str_exp: &String) -> VecDeque<String> {
     let res: VecDeque<_> = str_exp
         .replace("(", " ( ")
         .replace(")", " ) ")
@@ -128,14 +128,14 @@ fn tokenize(str_exp: &str) -> VecDeque<String> {
     res
 }
 
-fn atom(token: &str) -> Exp {
+fn atom<'a>(token: &'a str) -> Exp<'a> {
     match token.parse::<f64>() {
         Ok(num) => Exp::Number(num),
         Err(_) => Exp::Symbol(token.to_string()),
     }
 }
 
-fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
+fn gen_ast(tokens: VecDeque<String>) -> Result<Exp, ScmErr> {
     if tokens.is_empty() {
         return Err(ScmErr::from("Unexpected EOF"));
     }
@@ -171,8 +171,15 @@ fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
     }
 }
 
-fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
-    gen_ast(&mut tokenize(str_exp))
+fn parse<'a>(str_exp: &'a String) -> Result<Exp<'a>, ScmErr> {
+    let mut ast: VecDeque<String> = str_exp
+        .replace("(", " ( ")
+        .replace(")", " ) ")
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    // let mut ast = tokenize(str_exp);
+    gen_ast(ast)
 }
 
 // * Primitive operators
@@ -223,9 +230,7 @@ fn get_prelude() -> Env<'static> {
     res
 }
 
-lazy_static! {
-    static ref GLOBAL_ENV: Env<'static> = get_prelude();
-}
+static mut GLOBAL_ENV: Env<'static> = get_prelude();
 
 fn eval<'a>(exp: Exp<'a>, env: Env<'a>) -> Result<Exp<'a>, ScmErr> {
     match exp {
@@ -314,9 +319,29 @@ fn eval<'a>(exp: Exp<'a>, env: Env<'a>) -> Result<Exp<'a>, ScmErr> {
     }
 }
 
-fn apply_scm() {
+fn apply_scm<'a>(func: Exp<'a>, args:&[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     // TODO: implement this function
     // func can be Exp::Primitive or Exp::Closure
+    match func {
+        Exp::Primitive(prim) => apply!(prim, args),
+
+        Exp::Closure(clos) => {
+            match *clos.body {
+                Exp::List(body) => {
+                    let Exp::List(vars) = body[0];
+                    let mut local_env = clos.env.clone();
+                    for (&var, &arg) in vars.iter().zip(args) {
+                        let Exp::Symbol(i) = var;
+                        local_env.data.insert(i, arg);
+                    }
+                    eval(body[1], local_env)
+                }
+                _ => Err(ScmErr::from("closure unpacking error: expected a list")),
+            }
+        }
+
+        _ => Err(ScmErr::from("apply_scm: a function can only be Exp::Primitive or Exp::Closure")),
+    }
 }
 
 fn main() {
