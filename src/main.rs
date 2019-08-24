@@ -482,4 +482,21 @@ mod tests {
             .collect();
         assert_eq!(tokenize(left), right)
     }
+
+    #[test]
+    fn test_parse() {
+        let left = "(+ 1 2)";
+        let right : VecDeque<Exp> = vec![Exp::Symbol("+".to_string()), Exp::Number(1 as f64), Exp::Number(2 as f64)].iter().map(|x| x.clone()).collect(); 
+        let left = match parse(left) {
+            Ok(Exp::List(l)) => l,
+            _ => panic!("should parse to a list"),
+        };
+        for (l, r) in left.iter().zip(right.iter()) {
+            match (l, r) {
+                (Exp::Symbol(ls), Exp::Symbol(rs)) => assert_eq!(ls, rs),
+                (Exp::Number(lf), Exp::Number(rf)) => assert_eq!(lf, rf),
+                _ => panic!("should be Symbol or Number"),
+            }
+        }
+    }
 }
