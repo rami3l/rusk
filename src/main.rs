@@ -1,5 +1,7 @@
 use std::collections::{HashMap, VecDeque};
-use std::iter::FromIterator;
+use std::io;
+use std::fmt;
+// use std::iter::FromIterator;
 // use std::rc::Rc;
 // use std::cell::RefCell;
 
@@ -20,11 +22,26 @@ enum Exp {
     // TODO: implement Display trait
     Bool(bool),
     Symbol(String),
-    Number(f64),             // ! int unimplemented
+    Number(f64),         // ! int unimplemented
     List(VecDeque<Exp>), // also used as AST
     Closure(ScmClosure),
     Primitive(fn(&[Exp]) -> Result<Exp, ScmErr>),
     Empty,
+}
+
+impl fmt::Debug for Exp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Exp::Bool(b) => format!("{}", b),
+            Exp::Symbol(s) => s.to_string(),
+            Exp::Number(f) => format!("{}", f),
+            Exp::List(l) => format!("{:?}", l),
+            Exp::Closure(_) => "<Closure>".to_string(),
+            Exp::Primitive(_) => "<Primitive>".to_string(),
+            Exp::Empty => String::new(),
+        };
+        write!(f, "{}", res)
+    }
 }
 
 #[derive(Clone)]
@@ -71,7 +88,6 @@ struct ScmClosure {
     env: Env,
 }
 
-#[derive(Debug)]
 enum ScmErr {
     Reason(String),
 }
@@ -79,6 +95,15 @@ enum ScmErr {
 impl ScmErr {
     fn from(reason: &str) -> ScmErr {
         ScmErr::Reason(String::from(reason))
+    }
+}
+
+impl fmt::Debug for ScmErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let reason = match self {
+            ScmErr::Reason(res) => res.clone(),
+        };
+        write!(f, "{}", reason)
     }
 }
 
@@ -245,19 +270,17 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
             };
             let tail = &list[1..];
             match head.as_ref() {
-                "quote" => {
-                    match tail.get(0) {
-                        Some(res) => Ok(res.clone()),
-                        None => Err(ScmErr::from("quote: nothing to quote")),
-                    }
-                }
+                "quote" => match tail.get(0) {
+                    Some(res) => Ok(res.clone()),
+                    None => Err(ScmErr::from("quote: nothing to quote")),
+                },
 
                 "lambda" => {
                     let tail_deque: VecDeque<Exp> = tail.iter().map(|x| x.clone()).collect();
                     let tail = Exp::List(tail_deque);
                     let closure = ScmClosure {
                         body: Box::new(tail),
-                        env: Env::new(Some(Box::new(env.clone())))
+                        env: Env::new(Some(Box::new(env.clone()))),
                     };
                     Ok(Exp::Closure(closure))
                 }
@@ -332,20 +355,20 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("define: nothing to define")),
                     };
+                    let definition = match tail.get(1) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("define: nothing to define")),
+                    };
+                    let eval_definition = eval(definition, env).unwrap();
                     let target = match env.find(&symbol) {
                         // ! Box::leak()
-                        Some(res) => Box::leak(res), 
+                        Some(res) => Box::leak(res),
                         None => env,
                     };
                     let key = match symbol {
                         Exp::Symbol(res) => res,
                         _ => return Err(ScmErr::from("define: expected Symbol")),
                     };
-                    let definition = match tail.get(1) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("define: nothing to define")),
-                    };
-                    let eval_definition = eval(definition, env).unwrap();
                     target.data.insert(key, eval_definition);
                     println!(">> Symbol set");
                     // TODO: detailed info
@@ -354,7 +377,8 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
 
                 _ => {
                     let func = eval(Exp::Symbol(head.clone()), env).unwrap();
-                    let args: Vec<Exp> = tail.iter().map(|i| eval(i.clone(), env).unwrap()).collect();
+                    let args: Vec<Exp> =
+                        tail.iter().map(|i| eval(i.clone(), env).unwrap()).collect();
                     apply_scm(func, &args[..])
                 }
             }
@@ -369,29 +393,69 @@ fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
     match func {
         Exp::Primitive(prim) => apply!(prim, args),
 
-        Exp::Closure(clos) => {
-            match *clos.body {
-                Exp::List(body) => {
-                    match body.get(0) {
-                        Some(Exp::List(vars)) => {
-                            let mut local_env = clos.env.clone();
-                            for (&var, &arg) in vars.iter().zip(args) {
-                                match var {
-                                    Exp::Symbol(i) => local_env.data.insert(i, arg),
-                                    _ => return Err(ScmErr::from("closure unpacking error: expected a list of Symbol")),
-                                };
+        Exp::Closure(clos) => match *clos.body {
+            Exp::List(body) => match body.get(0) {
+                Some(Exp::List(vars)) => {
+                    let mut local_env = clos.env.clone();
+                    for (var, arg) in vars.iter().zip(args) {
+                        let var = var.clone();
+                        let arg = arg.clone();
+                        match var {
+                            Exp::Symbol(i) => local_env.data.insert(i, arg),
+                            _ => {
+                                return Err(ScmErr::from(
+                                    "closure unpacking error: expected a list of Symbol",
+                                ))
                             }
-                            eval(body[1], &mut local_env)
+                        };
+                    }
+                    match body.get(1) {
+                        Some(exp) => eval(exp.clone(), &mut local_env),
+                        None => {
+                            return Err(ScmErr::from("closure unpacking error: missing definition"))
                         }
-                        _ => Err(ScmErr::from("closure unpacking error: expected a non-empty list")),
-
                     }
                 }
-                _ => Err(ScmErr::from("closure unpacking error: expected a list")),
+                _ => Err(ScmErr::from(
+                    "closure unpacking error: expected a non-empty list",
+                )),
+            },
+            _ => Err(ScmErr::from("closure unpacking error: expected a list")),
+        },
+        _ => Err(ScmErr::from(
+            "apply_scm: a function can only be Exp::Primitive or Exp::Closure",
+        )),
+    }
+}
+
+fn repl() {
+    let mut count = 0;
+    println!("<rx.rs>");
+    loop {
+        count += 1;
+        print!("#;{}>", count);
+        // ! read input
+        let mut str_exp = String::new();
+        io::stdin().read_line(&mut str_exp);
+        let str_exp = str_exp.trim();
+        match str_exp {
+            ",q" => {
+                println!("Quitting...");
+                break
+            },
+            _ => {
+                match parse(str_exp) {
+                    Ok(exp) => {
+                        let val = eval(exp, &mut GLOBAL_ENV);
+                        println!("=> {:?}", val);
+                    },
+                    Err(e) => {
+                        println!("Error: {:?}", e);
+                        continue
+                    }
+                }
             }
         }
-
-        _ => Err(ScmErr::from("apply_scm: a function can only be Exp::Primitive or Exp::Closure")),
     }
 }
 
