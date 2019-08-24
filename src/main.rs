@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
-use std::io;
+use std::io::{self, Write};
 // use std::iter::FromIterator;
 // use std::rc::Rc;
 // use std::cell::RefCell;
@@ -176,12 +176,18 @@ fn gen_ast(tokens: &VecDeque<String>) -> Result<Exp, ScmErr> {
                     Some(t) => match t.as_ref() {
                         ")" => break,
                         _ => match gen_ast(&tokens) {
-                            Ok(Exp::List(mut to_append)) => res.append(&mut to_append),
+                            Ok(Exp::List(l)) => res.push_back(Exp::List(l)),
+                            Ok(Exp::Symbol(s)) => res.push_back(Exp::Symbol(s)),
+                            Ok(Exp::Number(f)) => res.push_back(Exp::Number(f)),
                             // recursion: deal with the tail of the list
                             // ! Attention: we are appending sub-expressions (including atoms) to the result
                             // Todo: refactor this function
                             Err(e) => return Err(e),
-                            _ => return Err(ScmErr::from("Unknown Error")),
+                            _ => {
+                                return Err(ScmErr::from(
+                                    "gen_ast: Expected a deque of Symbol, Number or List",
+                                ))
+                            }
                         },
                     },
                     None => return Err(ScmErr::from("Mismatched parens")),
@@ -433,12 +439,10 @@ fn repl() {
     loop {
         count += 1;
         print!("#;{}> ", count);
+        io::stdout().flush().unwrap();
         // ! read input
         let mut str_exp = String::new();
-        match io::stdin().read_line(&mut str_exp) {
-            Ok(_) => (),
-            Err(e) => println!("Input: {}", e),
-        }
+        io::stdin().read_line(&mut str_exp).unwrap();
         let str_exp = str_exp.trim();
         match str_exp {
             ",q" => {
@@ -463,4 +467,19 @@ fn main() {
     // code goes here
     // println!("Hello, rx_rs!");
     repl();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tokenize() {
+        let left = "(+ 1 2)";
+        let right: VecDeque<String> = vec!["(", "+", "1", "2", ")"]
+            .iter()
+            .map(|x| x.to_string())
+            .collect();
+        assert_eq!(tokenize(left), right)
+    }
 }
