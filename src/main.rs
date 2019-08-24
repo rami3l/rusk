@@ -250,8 +250,6 @@ fn get_prelude() -> Env {
     res
 }
 
-static mut GLOBAL_ENV: Env = get_prelude();
-
 fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
@@ -430,13 +428,17 @@ fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
 
 fn repl() {
     let mut count = 0;
+    let mut global_env: Env = get_prelude();
     println!("<rx.rs>");
     loop {
         count += 1;
-        print!("#;{}>", count);
+        print!("#;{}> ", count);
         // ! read input
         let mut str_exp = String::new();
-        io::stdin().read_line(&mut str_exp);
+        match io::stdin().read_line(&mut str_exp) {
+            Ok(_) => (),
+            Err(e) => println!("Input: {}", e),
+        }
         let str_exp = str_exp.trim();
         match str_exp {
             ",q" => {
@@ -445,7 +447,7 @@ fn repl() {
             }
             _ => match parse(str_exp) {
                 Ok(exp) => {
-                    let val = eval(exp, &mut GLOBAL_ENV);
+                    let val = eval(exp, &mut global_env);
                     println!("=> {:?}", val);
                 }
                 Err(e) => {
@@ -453,11 +455,12 @@ fn repl() {
                     continue;
                 }
             },
-        }
+        };
     }
 }
 
 fn main() {
     // code goes here
-    println!("Hello, rx_rs!");
+    // println!("Hello, rx_rs!");
+    repl();
 }
