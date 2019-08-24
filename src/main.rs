@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
-use std::io;
 use std::fmt;
+use std::io;
 // use std::iter::FromIterator;
 // use std::rc::Rc;
 // use std::cell::RefCell;
@@ -441,20 +441,18 @@ fn repl() {
         match str_exp {
             ",q" => {
                 println!("Quitting...");
-                break
-            },
-            _ => {
-                match parse(str_exp) {
-                    Ok(exp) => {
-                        let val = eval(exp, &mut GLOBAL_ENV);
-                        println!("=> {:?}", val);
-                    },
-                    Err(e) => {
-                        println!("Error: {:?}", e);
-                        continue
-                    }
-                }
+                break;
             }
+            _ => match parse(str_exp) {
+                Ok(exp) => {
+                    let val = eval(exp, &mut GLOBAL_ENV);
+                    println!("=> {:?}", val);
+                }
+                Err(e) => {
+                    println!("Error: {:?}", e);
+                    continue;
+                }
+            },
         }
     }
 }
