@@ -280,7 +280,18 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                 }
 
                 "if" => {
-                    let [condition, then_, else_] = *tail;
+                    let condition = match tail.get(0) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("if: missing condition")),
+                    };
+                    let then_ = match tail.get(1) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("if: missing then clause")),
+                    };
+                    let else_ = match tail.get(2) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("if: missing else clause")),
+                    };
                     // return eval(then_ if eval(condition, env) else else_, env)
                     match eval(condition, env) {
                         Ok(Exp::Bool(true)) => eval(then_, env),
@@ -290,10 +301,19 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                 }
 
                 "cond" => {
-                    for &item in tail {
-                        let Exp::List(pair) = item;
-                        let pair: Vec<_> = Vec::from_iter(pair.iter());
-                        let [&condition, &then_] = &pair[..];
+                    for item in tail.iter() {
+                        let pair = match item {
+                            Exp::List(res) => res.clone(),
+                            _ => return Err(ScmErr::from("cond: expected pairs")),
+                        };
+                        let condition = match pair.get(0) {
+                            Some(res) => res.clone(),
+                            None => return Err(ScmErr::from("cond: missing condition")),
+                        };
+                        let then_ = match pair.get(1) {
+                            Some(res) => res.clone(),
+                            None => return Err(ScmErr::from("cond: missing then clause")),
+                        };
                         match eval(condition, env) {
                             Ok(Exp::Bool(true)) => return eval(then_, env),
                             Ok(Exp::Bool(false)) => continue,
@@ -308,14 +328,25 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                 }
 
                 "set!" => {
-                    let [symbol, definition] = *tail;
+                    let symbol = match tail.get(0) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("define: nothing to define")),
+                    };
                     let target = match env.find(&symbol) {
                         // ! Box::leak()
                         Some(res) => Box::leak(res), 
-                        None => &mut env,
+                        None => env,
                     };
-                    let Exp::Symbol(key) = symbol;
-                    target.data.insert(key, eval(definition, env).unwrap());
+                    let key = match symbol {
+                        Exp::Symbol(res) => res,
+                        _ => return Err(ScmErr::from("define: expected Symbol")),
+                    };
+                    let definition = match tail.get(1) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("define: nothing to define")),
+                    };
+                    let eval_definition = eval(definition, env).unwrap();
+                    target.data.insert(key, eval_definition);
                     println!(">> Symbol set");
                     // TODO: detailed info
                     Ok(Exp::Empty)
@@ -323,7 +354,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
 
                 _ => {
                     let func = eval(Exp::Symbol(head.clone()), env).unwrap();
-                    let args: Vec<Exp> = tail.iter().map(|i| eval(*i, env).unwrap()).collect();
+                    let args: Vec<Exp> = tail.iter().map(|i| eval(i.clone(), env).unwrap()).collect();
                     apply_scm(func, &args[..])
                 }
             }
