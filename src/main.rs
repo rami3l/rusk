@@ -160,12 +160,11 @@ fn atom(token: &str) -> Exp {
     }
 }
 
-fn gen_ast(tokens: &VecDeque<String>) -> Result<Exp, ScmErr> {
+fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
     if tokens.is_empty() {
-        return Err(ScmErr::from("Unexpected EOF"));
+        return Err(ScmErr::from("gen_ast: Unexpected EOF"));
     }
 
-    let mut tokens = tokens.clone();
     let head = tokens.pop_front().unwrap();
     match head.as_ref() {
         // if we have a list ahead of us, we return that list
@@ -175,7 +174,7 @@ fn gen_ast(tokens: &VecDeque<String>) -> Result<Exp, ScmErr> {
                 match tokens.get(0) {
                     Some(t) => match t.as_ref() {
                         ")" => break,
-                        _ => match gen_ast(&tokens) {
+                        _ => match gen_ast(tokens) {
                             Ok(Exp::List(l)) => res.push_back(Exp::List(l)),
                             Ok(Exp::Symbol(s)) => res.push_back(Exp::Symbol(s)),
                             Ok(Exp::Number(f)) => res.push_back(Exp::Number(f)),
@@ -190,13 +189,13 @@ fn gen_ast(tokens: &VecDeque<String>) -> Result<Exp, ScmErr> {
                             }
                         },
                     },
-                    None => return Err(ScmErr::from("Mismatched parens")),
+                    None => return Err(ScmErr::from("gen_ast: Mismatched parens")),
                 }
             }
             tokens.pop_front(); // pop off ")"
             Ok(Exp::List(res))
         }
-        ")" => Err(ScmErr::from("Extra ) found")),
+        ")" => Err(ScmErr::from("gen_ast: Extra \")\" found")),
 
         // if the head is a single atom, we return just the head
         _ => Ok(atom(&head)),
@@ -204,8 +203,8 @@ fn gen_ast(tokens: &VecDeque<String>) -> Result<Exp, ScmErr> {
 }
 
 fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
-    let ast = tokenize(str_exp);
-    gen_ast(&ast)
+    let mut ast = tokenize(str_exp);
+    gen_ast(&mut ast)
 }
 
 // * Primitive operators
@@ -241,6 +240,13 @@ fn div(pair: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
+fn eq(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a == b)),
+        _ => Err(ScmErr::from("eq: expected Exp::Bool")),
+    }
+}
+
 // * Prelude
 
 fn get_prelude() -> Env {
@@ -252,6 +258,10 @@ fn get_prelude() -> Env {
     data.insert(String::from("-"), Exp::Primitive(sub));
     data.insert(String::from("*"), Exp::Primitive(mul));
     data.insert(String::from("/"), Exp::Primitive(div));
+    data.insert(String::from("="), Exp::Primitive(eq));
+
+    data.insert(String::from("#t"), Exp::Bool(true));
+    data.insert(String::from("#f"), Exp::Bool(false));
 
     res
 }
@@ -259,10 +269,10 @@ fn get_prelude() -> Env {
 fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
-        Exp::Symbol(_) => {
-            match env.lookup(&exp) {
+        Exp::Symbol(s) => {
+            match env.lookup(&Exp::Symbol(s.clone())) {
                 Some(res) => Ok(res),
-                None => Err(ScmErr::from("Symbol undefined")),
+                None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
                 // TODO: detailed info
             }
         }
@@ -299,9 +309,12 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("define: nothing to define")),
                     };
-                    let eval_definition = eval(definition, env).unwrap();
-                    env.data.insert(symbol, eval_definition);
-                    println!(">> Symbol defined");
+                    let eval_definition = match eval(definition, env) {
+                        Ok(res) => res,
+                        Err(e) => return Err(e),
+                    };
+                    env.data.insert(symbol.clone(), eval_definition);
+                    println!(">> Symbol \"{}\" defined", symbol);
                     // TODO: detailed info
                     Ok(Exp::Empty)
                 }
@@ -333,21 +346,21 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                             Exp::List(res) => res.clone(),
                             _ => return Err(ScmErr::from("cond: expected pairs")),
                         };
-                        let condition = match pair.get(0) {
-                            Some(res) => res.clone(),
-                            None => return Err(ScmErr::from("cond: missing condition")),
-                        };
                         let then_ = match pair.get(1) {
                             Some(res) => res.clone(),
                             None => return Err(ScmErr::from("cond: missing then clause")),
                         };
+                        let condition = match pair.get(0) {
+                            Some(Exp::Symbol(s)) => match s.as_ref() {
+                                "else" => return eval(then_, env),
+                                _ => Exp::Symbol(s.clone()),
+                            },
+                            Some(res) => res.clone(),
+                            None => return Err(ScmErr::from("cond: missing condition")),
+                        };
                         match eval(condition, env) {
                             Ok(Exp::Bool(true)) => return eval(then_, env),
                             Ok(Exp::Bool(false)) => continue,
-                            Ok(Exp::Symbol(symbol)) => match symbol.as_ref() {
-                                "else" => return eval(then_, env),
-                                _ => continue,
-                            },
                             _ => return Err(ScmErr::from("cond: expected Exp::Bool")),
                         }
                     }
@@ -363,7 +376,10 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("define: nothing to define")),
                     };
-                    let eval_definition = eval(definition, env).unwrap();
+                    let eval_definition = match eval(definition, env) {
+                        Ok(res) => res,
+                        Err(e) => return Err(e),
+                    };
                     let target = match env.find(&symbol) {
                         // ! Box::leak()
                         Some(res) => Box::leak(res),
@@ -380,7 +396,10 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                 }
 
                 _ => {
-                    let func = eval(Exp::Symbol(head.clone()), env).unwrap();
+                    let func = match eval(Exp::Symbol(head.clone()), env) {
+                        Ok(res) => res,
+                        Err(e) => return Err(e),
+                    };
                     let args: Vec<Exp> =
                         tail.iter().map(|i| eval(i.clone(), env).unwrap()).collect();
                     apply_scm(func, &args[..])
@@ -392,7 +411,6 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
 }
 
 fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
-    // TODO: implement this function
     // func can be Exp::Primitive or Exp::Closure
     match func {
         Exp::Primitive(prim) => apply!(prim, args),
@@ -486,7 +504,14 @@ mod tests {
     #[test]
     fn test_parse() {
         let left = "(+ 1 2)";
-        let right : VecDeque<Exp> = vec![Exp::Symbol("+".to_string()), Exp::Number(1 as f64), Exp::Number(2 as f64)].iter().map(|x| x.clone()).collect(); 
+        let right: VecDeque<Exp> = vec![
+            Exp::Symbol("+".to_string()),
+            Exp::Number(1 as f64),
+            Exp::Number(2 as f64),
+        ]
+        .iter()
+        .map(|x| x.clone())
+        .collect();
         let left = match parse(left) {
             Ok(Exp::List(l)) => l,
             _ => panic!("should parse to a list"),
@@ -498,5 +523,85 @@ mod tests {
                 _ => panic!("should be Symbol or Number"),
             }
         }
+    }
+
+    fn check_io_str(input: &str, output: &str, env: &mut Env) {
+        let str_exp = input.to_string();
+        let right = output.to_string();
+        let left = match parse(&str_exp) {
+            Ok(exp) => {
+                let val = eval(exp, env);
+                format!("{:?}", val)
+            }
+            Err(e) => format!("Error: {:?}", e),
+        };
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn test_plus() {
+        let mut env: Env = get_prelude();
+        check_io_str("(+ 1 2)", "Ok(3)", &mut env);
+    }
+
+    #[test]
+    fn test_plus_nested() {
+        let mut env: Env = get_prelude();
+        check_io_str("(+ 1 (* 2 3))", "Ok(7)", &mut env);
+    }
+
+    #[test]
+    fn test_define_val() {
+        let mut env: Env = get_prelude();
+        check_io_str("(define x 3)", "Ok()", &mut env);
+        check_io_str("x", "Ok(3)", &mut env);
+        check_io_str("(+ x 1)", "Ok(4)", &mut env);
+    }
+
+    #[test]
+    fn test_define_proc_basic() {
+        let mut env: Env = get_prelude();
+        check_io_str("(define x 3)", "Ok()", &mut env);
+        check_io_str("x", "Ok(3)", &mut env);
+        check_io_str("(define one (lambda () 1))", "Ok()", &mut env);
+        check_io_str("(one)", "Ok(1)", &mut env);
+        check_io_str("(+ (one) (+ 2 x))", "Ok(6)", &mut env);
+    }
+
+    #[test]
+    fn test_define_proc_call_prim() {
+        let mut env: Env = get_prelude();
+        check_io_str("(define x 3)", "Ok()", &mut env);
+        check_io_str("x", "Ok(3)", &mut env);
+        check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", &mut env);
+        check_io_str("(inc 100)", "Ok(101)", &mut env);
+        check_io_str("(inc x)", "Ok(4)", &mut env);
+    }
+
+    #[test]
+    fn test_cond() {
+        let mut env: Env = get_prelude();
+        check_io_str("(if #t 123 wtf)", "Ok(123)", &mut env);
+        check_io_str("(if #f wtf 123)", "Ok(123)", &mut env);
+        check_io_str(
+            "(cond (#f wtf0) (#f wtf1) (#t 456) (else wtf3))",
+            "Ok(456)",
+            &mut env,
+        );
+        check_io_str(
+            "(cond (#f wtf0) (#f wtf1) (#f wtf2) (else 789))",
+            "Ok(789)",
+            &mut env,
+        );
+    }
+
+    #[test]
+    fn test_eq() {
+        let mut env: Env = get_prelude();
+        check_io_str("(define one (lambda () 1))", "Ok()", &mut env);
+        check_io_str("(= 1 1)", "Ok(true)", &mut env);
+        check_io_str("(= 1 (one))", "Ok(true)", &mut env);
+        check_io_str("(if (= 1 (one)) 123 wtf)", "Ok(123)", &mut env);
+        check_io_str("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)", &mut env);
     }
 }
