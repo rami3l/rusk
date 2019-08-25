@@ -57,6 +57,7 @@ impl Env {
             outer,
         }
     }
+
     fn find(&self, symbol: &Exp) -> Option<Box<Env>> {
         // find the innermost Env where symbol appears
         match symbol {
@@ -72,9 +73,13 @@ impl Env {
     }
 
     fn lookup(&self, symbol: &Exp) -> Option<Exp> {
+        // find the definition of a symbol
         match symbol {
-            Exp::Symbol(s) => match self.data.get(s) {
-                Some(exp) => Some(exp.clone()),
+            Exp::Symbol(s) => match self.find(&Exp::Symbol(s.clone())) {
+                Some(box_env) => match box_env.data.get(s) {
+                    Some(exp) => Some(exp.clone()),
+                    None => None,
+                },
                 None => None,
             },
             _ => None,
@@ -106,40 +111,6 @@ impl fmt::Debug for ScmErr {
         write!(f, "{}", reason)
     }
 }
-
-/*
-// * Let's do all this in Scheme?
-// ! begin
-
-fn car(x: &Exp) -> Option<Exp> {
-    match x {
-        Exp::List(l) => match l.get(0) {
-            Some(y) => Some(y.clone()),
-            None => None,
-        },
-        _ => None,
-    }
-}
-
-fn cdr(x: &Exp) -> Option<Exp> {
-    match x {
-        Exp::List(l) => match l.get(1..) {
-            Some(y) => Some(Exp::List(y.to_vec())),
-            None => None,
-        },
-        _ => None,
-    }
-}
-
-fn cons(x: &Exp, y: &Vec<Exp>) -> Option<Exp> {
-    let mut to_append = y.clone();
-    let mut res = vec![x.clone()];
-    res.append(&mut to_append);
-    Some(Exp::List(res))
-}
-
-// ! Oh, apply, unpacking...
-*/
 
 // * Parsing
 
@@ -247,6 +218,87 @@ fn eq(pair: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
+fn lt(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a < b)),
+        _ => Err(ScmErr::from("lt: expected Exp::Bool")),
+    }
+}
+
+fn le(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a <= b)),
+        _ => Err(ScmErr::from("le: expected Exp::Bool")),
+    }
+}
+
+fn gt(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a > b)),
+        _ => Err(ScmErr::from("gt: expected Exp::Bool")),
+    }
+}
+
+fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a >= b)),
+        _ => Err(ScmErr::from("ge: expected Exp::Bool")),
+    }
+}
+
+// ! begin
+
+fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
+    if args.is_empty() {
+        return Err(ScmErr::from("car: nothing to car"));
+    }
+    let pair = args.get(0).unwrap();
+    match pair {
+        Exp::List(deque) => match deque.get(0) {
+            Some(res) => Ok(res.clone()),
+            None => Err(ScmErr::from("car: expected a List of length 2")),
+        },
+        _ => Err(ScmErr::from("car: expected a List")),
+    }
+}
+
+fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
+    if args.is_empty() {
+        return Err(ScmErr::from("cdr: nothing to cdr"));
+    }
+    let pair = args.get(0).unwrap();
+    match pair {
+        Exp::List(deque) => match deque.get(1) {
+            Some(res) => Ok(res.clone()),
+            None => Err(ScmErr::from("car: expected a List of length 2")),
+        },
+        _ => Err(ScmErr::from("cdr: expected a List")),
+    }
+}
+
+fn cons(pair: &[Exp]) -> Result<Exp, ScmErr> {
+    match pair {
+        [a, b] => {
+            let res: VecDeque<Exp> = [a.clone(), b.clone()].iter().map(|x| x.clone()).collect();
+            Ok(Exp::List(res))
+        }
+        _ => Err(ScmErr::from("cons: expected two Exp to cons")),
+    }
+}
+
+fn is_null(args: &[Exp]) -> Result<Exp, ScmErr> {
+    if args.is_empty() {
+        return Err(ScmErr::from("empty?: nothing to check"));
+    }
+    match args.get(0) {
+        Some(Exp::List(list)) => match list.len() {
+            0 => Ok(Exp::Bool(true)),
+            _ => Ok(Exp::Bool(false)),
+        },
+        _ => Err(ScmErr::from("empty?: expected a List")),
+    }
+}
+
 // * Prelude
 
 fn get_prelude() -> Env {
@@ -259,9 +311,21 @@ fn get_prelude() -> Env {
     data.insert(String::from("*"), Exp::Primitive(mul));
     data.insert(String::from("/"), Exp::Primitive(div));
     data.insert(String::from("="), Exp::Primitive(eq));
+    data.insert(String::from("<"), Exp::Primitive(lt));
+    data.insert(String::from("<="), Exp::Primitive(le));
+    data.insert(String::from(">"), Exp::Primitive(gt));
+    data.insert(String::from(">="), Exp::Primitive(ge));
+
+    data.insert(String::from("car"), Exp::Primitive(car));
+    data.insert(String::from("cdr"), Exp::Primitive(cdr));
+    data.insert(String::from("cons"), Exp::Primitive(cons));
+
+    data.insert(String::from("null?"), Exp::Primitive(is_null));
 
     data.insert(String::from("#t"), Exp::Bool(true));
     data.insert(String::from("#f"), Exp::Bool(false));
+
+    data.insert(String::from("null"), Exp::List(VecDeque::new()));
 
     res
 }
@@ -603,5 +667,50 @@ mod tests {
         check_io_str("(= 1 (one))", "Ok(true)", &mut env);
         check_io_str("(if (= 1 (one)) 123 wtf)", "Ok(123)", &mut env);
         check_io_str("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)", &mut env);
+    }
+
+    #[test]
+    fn test_cons() {
+        let mut env: Env = get_prelude();
+        check_io_str("(car (cons 123 456))", "Ok(123)", &mut env);
+        check_io_str("(cdr (cons 123 456))", "Ok(456)", &mut env);
+        check_io_str("(define p (cons (cons 1 2) (cons 3 4)))", "Ok()", &mut env);
+        check_io_str("(cdr (car p))", "Ok(2)", &mut env);
+        check_io_str("(cdr p)", "Ok([3, 4])", &mut env);
+        check_io_str("p", "Ok([[1, 2], [3, 4]])", &mut env);
+        check_io_str(
+            "(define l (cons 1 (cons 2 (cons 3 null))))",
+            "Ok()",
+            &mut env,
+        );
+        check_io_str("(car (cdr l))", "Ok(2)", &mut env);
+        check_io_str("(cdr (cdr (cdr l)))", "Ok([])", &mut env);
+    }
+
+    #[test]
+    fn test_fibonacci() {
+        let mut env: Env = get_prelude();
+        check_io_str(
+            "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
+            "Ok()",
+            &mut env,
+        );
+        check_io_str("(fib 20)", "Ok(10946)", &mut env);
+        check_io_str(
+            "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
+            "Ok()",
+            &mut env,
+        );
+        check_io_str(
+            "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
+            "Ok()",
+            &mut env,
+        );
+        check_io_str(
+            "(range 0 10)",
+            "Ok([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])",
+            &mut env,
+        );
+        check_io_str("(map fib (range 0 20))", "Ok([3, 4])", &mut env);
     }
 }
