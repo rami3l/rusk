@@ -359,6 +359,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                     let closure = ScmClosure {
                         body: Box::new(tail),
                         env: Env::new(Some(Box::new(env.clone()))),
+                        // ! To fix: we want to clone a pointer, from &mut Env to Box<Env>, not to clone an Env.
                     };
                     Ok(Exp::Closure(closure))
                 }
