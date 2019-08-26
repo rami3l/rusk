@@ -18,18 +18,18 @@ macro_rules! apply {
 // * Types
 
 #[derive(Clone)]
-enum Exp {
+enum Exp<'a> {
     // TODO: implement Display trait
     Bool(bool),
     Symbol(String),
     Number(f64),         // ! int unimplemented
-    List(VecDeque<Exp>), // also used as AST
-    Closure(ScmClosure),
-    Primitive(fn(&[Exp]) -> Result<Exp, ScmErr>),
+    List(VecDeque<Exp<'a>>), // also used as AST
+    Closure(ScmClosure<'a>),
+    Primitive(fn(&[Exp<'a>]) -> Result<Exp<'a>, ScmErr>),
     Empty,
 }
 
-impl fmt::Debug for Exp {
+impl fmt::Debug for Exp<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let res = match self {
             Exp::Bool(b) => format!("{}", b),
@@ -44,25 +44,27 @@ impl fmt::Debug for Exp {
     }
 }
 
+// type RefEnv = Rc<RefCell<Env>>;
+
 #[derive(Clone)]
-struct Env {
-    data: HashMap<String, Exp>,
-    outer: Option<Box<Env>>,
+struct Env<'a> {
+    data: HashMap<String, Exp<'a>>,
+    outer: Option<&'a Env<'a>>,
 }
 
-impl Env {
-    fn new(outer: Option<Box<Env>>) -> Env {
+impl<'a> Env<'a> {
+    fn new(outer: Option<&'a Env<'a>>) -> Env<'a> {
         Env {
             data: HashMap::new(),
             outer,
         }
     }
 
-    fn find(&self, symbol: &Exp) -> Option<Box<Env>> {
+    fn find(&self, symbol: &Exp) -> Option<&'a Env> {
         // find the innermost Env where symbol appears
         match symbol {
             Exp::Symbol(s) => match self.data.get(s) {
-                Some(_) => Some(Box::new(self.clone())),
+                Some(_) => Some(self),
                 None => match &self.outer {
                     Some(outer) => outer.find(symbol),
                     None => None,
@@ -72,15 +74,15 @@ impl Env {
         }
     }
 
-    fn lookup(&self, symbol: &Exp) -> Option<Exp> {
+    fn lookup(&self, symbol: &Exp) -> Option<Exp<'a>> {
         // find the definition of a symbol
         match symbol {
-            Exp::Symbol(s) => match self.find(&Exp::Symbol(s.clone())) {
-                Some(box_env) => match box_env.data.get(s) {
-                    Some(exp) => Some(exp.clone()),
+            Exp::Symbol(s) => match self.data.get(s) {
+                Some(exp) => Some(exp.clone()),
+                None => match &self.outer {
+                    Some(outer) => outer.lookup(symbol),
                     None => None,
                 },
-                None => None,
             },
             _ => None,
         }
@@ -88,9 +90,9 @@ impl Env {
 }
 
 #[derive(Clone)]
-struct ScmClosure {
-    body: Box<Exp>,
-    env: Env,
+struct ScmClosure<'a> {
+    body: Box<Exp<'a>>,
+    env: Env<'a>,
 }
 
 enum ScmErr {
@@ -183,63 +185,63 @@ fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
 // All primitive operators are fn(&[Exp]) -> Option<Exp>
 // in order to fit into Exp::Primitive(fn(&[Exp]) -> Option<Exp>)
 
-fn add(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn add<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a + b)),
         _ => Err(ScmErr::from("add: expected Exp::Number")),
     }
 }
 
-fn sub(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn sub<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a - b)),
         _ => Err(ScmErr::from("sub: expected Exp::Number")),
     }
 }
 
-fn mul(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn mul<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a * b)),
         _ => Err(ScmErr::from("mul: expected Exp::Number")),
     }
 }
 
-fn div(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn div<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a / b)),
         _ => Err(ScmErr::from("div: expected Exp::Number")),
     }
 }
 
-fn eq(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn eq<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a == b)),
         _ => Err(ScmErr::from("eq: expected Exp::Bool")),
     }
 }
 
-fn lt(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn lt<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a < b)),
         _ => Err(ScmErr::from("lt: expected Exp::Bool")),
     }
 }
 
-fn le(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn le<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a <= b)),
         _ => Err(ScmErr::from("le: expected Exp::Bool")),
     }
 }
 
-fn gt(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn gt<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a > b)),
         _ => Err(ScmErr::from("gt: expected Exp::Bool")),
     }
 }
 
-fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn ge<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a >= b)),
         _ => Err(ScmErr::from("ge: expected Exp::Bool")),
@@ -248,7 +250,7 @@ fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
 
 // ! begin
 
-fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
+fn car<'a>(args: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     if args.is_empty() {
         return Err(ScmErr::from("car: nothing to car"));
     }
@@ -262,7 +264,7 @@ fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
-fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
+fn cdr<'a>(args: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     if args.is_empty() {
         return Err(ScmErr::from("cdr: nothing to cdr"));
     }
@@ -276,7 +278,7 @@ fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
-fn cons(pair: &[Exp]) -> Result<Exp, ScmErr> {
+fn cons<'a>(pair: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     match pair {
         [a, b] => {
             let res: VecDeque<Exp> = [a.clone(), b.clone()].iter().map(|x| x.clone()).collect();
@@ -286,7 +288,7 @@ fn cons(pair: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
-fn is_null(args: &[Exp]) -> Result<Exp, ScmErr> {
+fn is_null<'a>(args: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     if args.is_empty() {
         return Err(ScmErr::from("empty?: nothing to check"));
     }
@@ -301,7 +303,7 @@ fn is_null(args: &[Exp]) -> Result<Exp, ScmErr> {
 
 // * Prelude
 
-fn get_prelude() -> Env {
+fn get_prelude() -> Env<'static> {
     let mut res = Env::new(None);
     let data = &mut res.data;
 
@@ -330,18 +332,18 @@ fn get_prelude() -> Env {
     res
 }
 
-fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
+fn eval<'a>(exp: Exp<'a>, env: &'a mut Env<'a>) -> Result<Exp<'a>, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
         Exp::Symbol(s) => {
-            match env.lookup(&Exp::Symbol(s.clone())) {
+            match env.lookup(&exp) {
                 Some(res) => Ok(res),
                 None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
                 // TODO: detailed info
             }
         }
         Exp::List(deque) => {
-            let list: Vec<Exp> = deque.iter().map(|x| x.clone()).collect();
+            let list: Vec<Exp<'a>> = deque.iter().map(|x| x.clone()).collect();
             let head = match list.get(0) {
                 Some(Exp::Symbol(res)) => res,
                 _ => return Err(ScmErr::from("eval: expected a non-empty list of Symbol")),
@@ -358,8 +360,8 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                     let tail = Exp::List(tail_deque);
                     let closure = ScmClosure {
                         body: Box::new(tail),
-                        env: Env::new(Some(Box::new(env.clone()))),
-                        // ! To fix: we want to clone a pointer, from &mut Env to Box<Env>, not to clone an Env.
+                        env: Env::new(Some(env)),
+                        // ! To fix: we want to clone a pointer, from &mut Env to Rc<RefCell<Env>>, not to clone an Env.
                     };
                     Ok(Exp::Closure(closure))
                 }
@@ -446,8 +448,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Err(e) => return Err(e),
                     };
                     let target = match env.find(&symbol) {
-                        // ! Box::leak()
-                        Some(res) => Box::leak(res),
+                        Some(res) => res,
                         None => env,
                     };
                     let key = match symbol {
@@ -475,7 +476,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
     }
 }
 
-fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
+fn apply_scm<'a>(func: Exp<'a>, args: &[Exp<'a>]) -> Result<Exp<'a>, ScmErr> {
     // func can be Exp::Primitive or Exp::Closure
     match func {
         Exp::Primitive(prim) => apply!(prim, args),
