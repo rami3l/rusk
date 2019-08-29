@@ -75,12 +75,12 @@ impl Env {
     fn lookup(&self, symbol: &Exp) -> Option<Exp> {
         // find the definition of a symbol
         match symbol {
-            Exp::Symbol(s) => match self.find(&Exp::Symbol(s.clone())) {
-                Some(box_env) => match box_env.data.get(s) {
-                    Some(exp) => Some(exp.clone()),
+            Exp::Symbol(s) => match self.data.get(s) {
+                Some(def) => Some(def.clone()),
+                None => match &self.outer {
+                    Some(outer) => outer.lookup(symbol),
                     None => None,
                 },
-                None => None,
             },
             _ => None,
         }
@@ -435,11 +435,11 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                 "set!" => {
                     let symbol = match tail.get(0) {
                         Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("define: nothing to define")),
+                        None => return Err(ScmErr::from("set!: nothing to set!")),
                     };
                     let definition = match tail.get(1) {
                         Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("define: nothing to define")),
+                        None => return Err(ScmErr::from("set!: nothing to set!")),
                     };
                     let eval_definition = match eval(definition, env) {
                         Ok(res) => res,
@@ -452,7 +452,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                     };
                     let key = match symbol {
                         Exp::Symbol(res) => res,
-                        _ => return Err(ScmErr::from("define: expected Symbol")),
+                        _ => return Err(ScmErr::from("set!: expected Symbol")),
                     };
                     target.data.insert(key, eval_definition);
                     println!(">> Symbol set");
