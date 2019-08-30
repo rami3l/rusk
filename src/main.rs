@@ -1,9 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::io::{self, Write};
-// use std::iter::FromIterator;
-// use std::rc::Rc;
-// use std::cell::RefCell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // #[macro_use]
 // extern crate lazy_static;
@@ -44,14 +43,16 @@ impl fmt::Debug for Exp {
     }
 }
 
+type RcRefCellBox<T> = Rc<RefCell<Box<T>>>;
+
 #[derive(Clone)]
 struct Env {
     data: HashMap<String, Exp>,
-    outer: Option<Box<Env>>,
+    outer: Option<RcRefCellBox<Env>>,
 }
 
 impl Env {
-    fn new(outer: Option<Box<Env>>) -> Env {
+    fn new(outer: Option<RcRefCellBox<Env>>) -> Env {
         Env {
             data: HashMap::new(),
             outer,
@@ -64,7 +65,7 @@ impl Env {
             Exp::Symbol(s) => match self.data.get(s) {
                 Some(_) => Some(Box::new(self.clone())),
                 None => match &self.outer {
-                    Some(outer) => outer.find(symbol),
+                    Some(outer) => outer.borrow().find(symbol),
                     None => None,
                 },
             },
@@ -78,7 +79,7 @@ impl Env {
             Exp::Symbol(s) => match self.data.get(s) {
                 Some(def) => Some(def.clone()),
                 None => match &self.outer {
-                    Some(outer) => outer.lookup(symbol),
+                    Some(outer) => outer.borrow().lookup(symbol),
                     None => None,
                 },
             },
@@ -330,11 +331,11 @@ fn get_prelude() -> Env {
     res
 }
 
-fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
+fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
         Exp::Symbol(s) => {
-            match env.lookup(&Exp::Symbol(s.clone())) {
+            match env.borrow().lookup(&Exp::Symbol(s.clone())) {
                 Some(res) => Ok(res),
                 None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
                 // TODO: detailed info
@@ -358,7 +359,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                     let tail = Exp::List(tail_deque);
                     let closure = ScmClosure {
                         body: Box::new(tail),
-                        env: Env::new(Some(Box::new(env.clone()))),
+                        env: Env::new(Some(Rc::clone(&env))),
                         // ! To fix: we want to clone a pointer, from &mut Env to Box<Env>, not to clone an Env.
                     };
                     Ok(Exp::Closure(closure))
@@ -374,11 +375,13 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("define: nothing to define")),
                     };
-                    let eval_definition = match eval(definition, env) {
+                    let eval_definition = match eval(definition, Rc::clone(&env)) {
                         Ok(res) => res,
                         Err(e) => return Err(e),
                     };
-                    env.data.insert(symbol.clone(), eval_definition);
+                    env.borrow_mut()
+                        .data
+                        .insert(symbol.clone(), eval_definition);
                     println!(">> Symbol \"{}\" defined", symbol);
                     // TODO: detailed info
                     Ok(Exp::Empty)
@@ -398,7 +401,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         None => return Err(ScmErr::from("if: missing else clause")),
                     };
                     // return eval(then_ if eval(condition, env) else else_, env)
-                    match eval(condition, env) {
+                    match eval(condition, Rc::clone(&env)) {
                         Ok(Exp::Bool(true)) => eval(then_, env),
                         Ok(Exp::Bool(false)) => eval(else_, env),
                         _ => Err(ScmErr::from("if: expected Exp::Bool")),
@@ -423,7 +426,7 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                             Some(res) => res.clone(),
                             None => return Err(ScmErr::from("cond: missing condition")),
                         };
-                        match eval(condition, env) {
+                        match eval(condition, Rc::clone(&env)) {
                             Ok(Exp::Bool(true)) => return eval(then_, env),
                             Ok(Exp::Bool(false)) => continue,
                             _ => return Err(ScmErr::from("cond: expected Exp::Bool")),
@@ -432,6 +435,8 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                     Err(ScmErr::from("Missing else clause"))
                 }
 
+                // TODO: make set! work
+                /* 
                 "set!" => {
                     let symbol = match tail.get(0) {
                         Some(res) => res.clone(),
@@ -441,32 +446,35 @@ fn eval(exp: Exp, env: &mut Env) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("set!: nothing to set!")),
                     };
-                    let eval_definition = match eval(definition, env) {
+                    let eval_definition = match eval(definition, Rc::clone(&env)) {
                         Ok(res) => res,
                         Err(e) => return Err(e),
                     };
-                    let target = match env.find(&symbol) {
-                        // ! Box::leak()
-                        Some(res) => Box::leak(res),
-                        None => env,
-                    };
-                    let key = match symbol {
+                    let key = match symbol.clone() {
                         Exp::Symbol(res) => res,
                         _ => return Err(ScmErr::from("set!: expected Symbol")),
                     };
-                    target.data.insert(key, eval_definition);
-                    println!(">> Symbol set");
+                    // target.data.insert(key, eval_definition);
+                    match Rc::clone(&env).borrow().find(&symbol) {
+                        // ! Box::leak()
+                        Some(res) => Box::leak(res).data.insert(key, eval_definition),
+                        None => env.borrow_mut().data.insert(key, eval_definition),
+                    };
+                    println!(">> Symbol \"{:?}\" set", symbol);
                     // TODO: detailed info
                     Ok(Exp::Empty)
                 }
+                */
 
                 _ => {
-                    let func = match eval(Exp::Symbol(head.clone()), env) {
+                    let func = match eval(Exp::Symbol(head.clone()), Rc::clone(&env)) {
                         Ok(res) => res,
                         Err(e) => return Err(e),
                     };
-                    let args: Vec<Exp> =
-                        tail.iter().map(|i| eval(i.clone(), env).unwrap()).collect();
+                    let args: Vec<Exp> = tail
+                        .iter()
+                        .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
+                        .collect();
                     apply_scm(func, &args[..])
                 }
             }
@@ -483,12 +491,12 @@ fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
         Exp::Closure(clos) => match *clos.body {
             Exp::List(body) => match body.get(0) {
                 Some(Exp::List(vars)) => {
-                    let mut local_env = clos.env.clone();
+                    let local_env = Rc::new(RefCell::new(Box::new(clos.env.clone())));
                     for (var, arg) in vars.iter().zip(args) {
                         let var = var.clone();
                         let arg = arg.clone();
                         match var {
-                            Exp::Symbol(i) => local_env.data.insert(i, arg),
+                            Exp::Symbol(i) => local_env.borrow_mut().data.insert(i, arg),
                             _ => {
                                 return Err(ScmErr::from(
                                     "closure unpacking error: expected a list of Symbol",
@@ -497,7 +505,7 @@ fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
                         };
                     }
                     match body.get(1) {
-                        Some(exp) => eval(exp.clone(), &mut local_env),
+                        Some(exp) => eval(exp.clone(), local_env),
                         None => {
                             return Err(ScmErr::from("closure unpacking error: missing definition"))
                         }
@@ -517,7 +525,7 @@ fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
 
 fn repl() {
     let mut count = 0;
-    let mut global_env: Env = get_prelude();
+    let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
     println!("<rx.rs>");
     loop {
         count += 1;
@@ -534,7 +542,7 @@ fn repl() {
             }
             _ => match parse(str_exp) {
                 Ok(exp) => {
-                    let val = eval(exp, &mut global_env);
+                    let val = eval(exp, Rc::clone(&global_env));
                     println!("=> {:?}", val);
                 }
                 Err(e) => {
@@ -590,7 +598,7 @@ mod tests {
         }
     }
 
-    fn check_io_str(input: &str, output: &str, env: &mut Env) {
+    fn check_io_str(input: &str, output: &str, env: RcRefCellBox<Env>) {
         let str_exp = input.to_string();
         let right = output.to_string();
         let left = match parse(&str_exp) {
@@ -605,122 +613,130 @@ mod tests {
 
     #[test]
     fn test_plus() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(+ 1 2)", "Ok(3)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(+ 1 2)", "Ok(3)", Rc::clone(&env));
     }
 
     #[test]
     fn test_plus_nested() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(+ 1 (* 2 3))", "Ok(7)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(+ 1 (* 2 3))", "Ok(7)", Rc::clone(&env));
     }
 
     #[test]
     fn test_define_val() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(define x 3)", "Ok()", env);
-        check_io_str("x", "Ok(3)", env);
-        check_io_str("(+ x 1)", "Ok(4)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(define x 3)", "Ok()", Rc::clone(&env));
+        check_io_str("x", "Ok(3)", Rc::clone(&env));
+        check_io_str("(+ x 1)", "Ok(4)", Rc::clone(&env));
     }
 
     #[test]
     fn test_define_proc_basic() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(define x 3)", "Ok()", env);
-        check_io_str("x", "Ok(3)", env);
-        check_io_str("(define one (lambda () 1))", "Ok()", env);
-        check_io_str("(one)", "Ok(1)", env);
-        check_io_str("(+ (one) (+ 2 x))", "Ok(6)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(define x 3)", "Ok()", Rc::clone(&env));
+        check_io_str("x", "Ok(3)", Rc::clone(&env));
+        check_io_str("(define one (lambda () 1))", "Ok()", Rc::clone(&env));
+        check_io_str("(one)", "Ok(1)", Rc::clone(&env));
+        check_io_str("(+ (one) (+ 2 x))", "Ok(6)", Rc::clone(&env));
     }
 
     #[test]
     fn test_define_proc_call_prim() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(define x 3)", "Ok()", env);
-        check_io_str("x", "Ok(3)", env);
-        check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", env);
-        check_io_str("(inc 100)", "Ok(101)", env);
-        check_io_str("(inc x)", "Ok(4)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(define x 3)", "Ok()", Rc::clone(&env));
+        check_io_str("x", "Ok(3)", Rc::clone(&env));
+        check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", Rc::clone(&env));
+        check_io_str("(inc 100)", "Ok(101)", Rc::clone(&env));
+        check_io_str("(inc x)", "Ok(4)", Rc::clone(&env));
     }
 
     #[test]
     fn test_cond() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(if #t 123 wtf)", "Ok(123)", env);
-        check_io_str("(if #f wtf 123)", "Ok(123)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(if #t 123 wtf)", "Ok(123)", Rc::clone(&env));
+        check_io_str("(if #f wtf 123)", "Ok(123)", Rc::clone(&env));
         check_io_str(
             "(cond (#f wtf0) (#f wtf1) (#t 456) (else wtf3))",
             "Ok(456)",
-            env,
+            Rc::clone(&env),
         );
         check_io_str(
             "(cond (#f wtf0) (#f wtf1) (#f wtf2) (else 789))",
             "Ok(789)",
-            env,
+            Rc::clone(&env),
         );
     }
 
     #[test]
     fn test_eq() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(define one (lambda () 1))", "Ok()", env);
-        check_io_str("(= 1 1)", "Ok(true)", env);
-        check_io_str("(= 1 (one))", "Ok(true)", env);
-        check_io_str("(if (= 1 (one)) 123 wtf)", "Ok(123)", env);
-        check_io_str("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(define one (lambda () 1))", "Ok()", Rc::clone(&env));
+        check_io_str("(= 1 1)", "Ok(true)", Rc::clone(&env));
+        check_io_str("(= 1 (one))", "Ok(true)", Rc::clone(&env));
+        check_io_str("(if (= 1 (one)) 123 wtf)", "Ok(123)", Rc::clone(&env));
+        check_io_str("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)", Rc::clone(&env));
     }
 
     #[test]
     fn test_cons() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
-        check_io_str("(car (cons 123 456))", "Ok(123)", env);
-        check_io_str("(cdr (cons 123 456))", "Ok(456)", env);
-        check_io_str("(define p (cons (cons 1 2) (cons 3 4)))", "Ok()", env);
-        check_io_str("(cdr (car p))", "Ok(2)", env);
-        check_io_str("(cdr p)", "Ok([3, 4])", env);
-        check_io_str("p", "Ok([[1, 2], [3, 4]])", env);
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str("(car (cons 123 456))", "Ok(123)", Rc::clone(&env));
+        check_io_str("(cdr (cons 123 456))", "Ok(456)", Rc::clone(&env));
+        check_io_str(
+            "(define p (cons (cons 1 2) (cons 3 4)))",
+            "Ok()",
+            Rc::clone(&env),
+        );
+        check_io_str("(cdr (car p))", "Ok(2)", Rc::clone(&env));
+        check_io_str("(cdr p)", "Ok([3, 4])", Rc::clone(&env));
+        check_io_str("p", "Ok([[1, 2], [3, 4]])", Rc::clone(&env));
         check_io_str(
             "(define l (cons 1 (cons 2 (cons 3 null))))",
             "Ok()",
-            env,
+            Rc::clone(&env),
         );
-        check_io_str("(car (cdr l))", "Ok(2)", env);
-        check_io_str("(cdr (cdr (cdr l)))", "Ok([])", env);
+        check_io_str("(car (cdr l))", "Ok(2)", Rc::clone(&env));
+        check_io_str("(cdr (cdr (cdr l)))", "Ok([])", Rc::clone(&env));
     }
 
     #[test]
     fn test_fibonacci() {
-        let mut env: Env = get_prelude();
-        let env = &mut env;
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str(
             "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
             "Ok()",
-            env,
+            Rc::clone(&env),
         );
-        check_io_str("(fib 20)", "Ok(10946)", env);
+        check_io_str("(fib 20)", "Ok(10946)", Rc::clone(&env));
         check_io_str(
             "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
             "Ok()",
-            env,
+            Rc::clone(&env),
         );
         check_io_str(
             "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
             "Ok()",
-            env,
+            Rc::clone(&env),
         );
         check_io_str(
             "(range 0 10)",
-            "Ok([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])",
-            env,
+            "Ok([0, [1, [2, [3, [4, [5, [6, [7, [8, [9, []]]]]]]]]]])",
+            Rc::clone(&env),
         );
-        // check_io_str("(map fib (range 0 20))", "Ok([3, 4])", env);
+        check_io_str(
+            "(map fib (range 0 20))",
+            "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, [89, [144, [233, [377, [610, [987, [1597, [2584, [4181, [6765, []]]]]]]]]]]]]]]]]]]]])",
+            Rc::clone(&env),
+        );
     }
 }
