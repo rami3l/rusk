@@ -449,7 +449,7 @@ fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                         let res;
                         loop {
                             let outer = match &current.borrow().outer {
-                                Some(res) => Rc::clone(&res),
+                                Some(x) => Rc::clone(&x),
                                 None => {
                                     res = Rc::clone(&current);
                                     break;
