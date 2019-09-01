@@ -32,7 +32,7 @@ impl fmt::Debug for Exp {
         let res = match self {
             Exp::Bool(b) => format!("{}", b),
             Exp::Symbol(s) => s.to_string(),
-            Exp::Number(f) => format!("{}", f),
+            Exp::Number(n) => format!("{}", n),
             Exp::List(l) => format!("{:?}", l),
             Exp::Closure(_) => "<Closure>".to_string(),
             Exp::Primitive(_) => "<Primitive>".to_string(),
