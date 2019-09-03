@@ -3,13 +3,6 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-macro_rules! apply {
-    // def apply(func, args): return func(args)
-    ($func: expr, $args: expr) => {
-        $func($args)
-    };
-}
-
 pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
@@ -174,7 +167,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                         .iter()
                         .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
                         .collect();
-                    apply_scm(func, &args[..])
+                    apply(func, &args[..])
                 }
             }
         }
@@ -182,10 +175,10 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
     }
 }
 
-fn apply_scm(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
+fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
     // func can be Exp::Primitive or Exp::Closure
     match func {
-        Exp::Primitive(prim) => apply!(prim, args),
+        Exp::Primitive(prim) => prim(args),
 
         Exp::Closure(clos) => match *clos.body {
             Exp::List(body) => match body.get(0) {
