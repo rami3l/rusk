@@ -1,5 +1,6 @@
 use crate::eval_apply::eval;
 use crate::parser::parse;
+use crate::parser::InPort;
 use crate::prelude::get_prelude;
 use rustyline::{error::ReadlineError, Editor};
 use std::cell::RefCell;

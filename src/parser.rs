@@ -2,8 +2,9 @@ use crate::types::*;
 use regex::Regex;
 use std::collections::VecDeque;
 use std::error::Error;
+// use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader};
+use std::io::{self, BufRead, BufReader};
 
 // * Parsing
 
@@ -78,25 +79,28 @@ lazy_static! {
         Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 }
 
-struct InPort {
+pub struct InPort {
     // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
-    file: String,
+    file: Option<String>,
     line: String,
 }
 
 impl InPort {
-    fn new(file_str: &str) -> InPort {
+    fn new(file: Option<&str>) -> InPort {
         InPort {
-            file: String::from(file_str),
+            file: match file {
+                Some(f) => Some(String::from(f)),
+                None => None,
+            },
             line: String::new(),
         }
     }
 
     fn next_token(&mut self) -> Result<Option<String>, Box<dyn Error>> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(false)
-            .open(&self.file)?;
+        let file: Box<dyn io::Read> = match self.file.as_ref() {
+            Some(f) => Box::new(OpenOptions::new().read(true).write(false).open(f)?),
+            None => Box::new(io::stdin()),
+        };
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
         loop {
@@ -145,7 +149,7 @@ impl InPort {
         }
     }
 
-    fn read(&mut self) -> Result<Exp, ScmErr> {
+    pub fn parse(&mut self) -> Result<Exp, ScmErr> {
         let next = self.next_token().unwrap();
         match next {
             Some(t) => self.read_ahead(&t),
