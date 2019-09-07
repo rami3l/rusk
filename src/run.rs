@@ -1,17 +1,75 @@
 use crate::eval_apply::eval;
 use crate::parser::parse;
 use crate::prelude::get_prelude;
+use regex::Regex;
+use rustyline::{error::ReadlineError, Editor};
 use std::cell::RefCell;
 use std::error::Error;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, BufReader, Write};
 use std::rc::Rc;
+
+lazy_static! {
+    static ref RE: Regex =
+        Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
+}
+
+struct InPort {
+    // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
+    file: File,
+    line: String,
+}
+
+impl InPort {
+    fn new(file: File) -> InPort {
+        InPort {
+            file,
+            line: String::new(),
+        }
+    }
+
+    fn next_token(&mut self) {
+        unimplemented!()
+    }
+}
 
 pub fn repl() -> Result<(), Box<dyn Error>> {
     let mut count = 0;
     let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
+    let mut editor = Editor::<()>::new();
     println!("<rx.rs>");
     loop {
         count += 1;
+        let readline = editor.readline(&format!("#;{}> ", count));
+        match readline {
+            Ok(line) => match line.as_ref() {
+                ",q" => {
+                    println!("Quit");
+                    break;
+                }
+                _ => match parse(&line) {
+                    Ok(exp) => {
+                        let val = eval(exp, Rc::clone(&global_env));
+                        println!("=> {:?}", val);
+                    }
+                    Err(e) => {
+                        println!("Error: {:?}", e);
+                        continue;
+                    }
+                },
+            },
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => return Err(Box::new(err)),
+        }
+    }
+    /*
         print!("#;{}> ", count);
         io::stdout().flush()?;
         // ! read input
@@ -35,6 +93,7 @@ pub fn repl() -> Result<(), Box<dyn Error>> {
             },
         };
     }
+    */
     Ok(())
 }
 

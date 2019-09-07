@@ -5,6 +5,9 @@ mod run;
 mod types;
 use std::process;
 
+#[macro_use]
+extern crate lazy_static;
+
 fn main() {
     // code goes here
     // println!("Hello, rx_rs!");
