@@ -179,7 +179,9 @@ mod tests {
         );
         check_io_str(
             "(map fib (range 0 20))",
-            "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, [89, [144, [233, [377, [610, [987, [1597, [2584, [4181, [6765, []]]]]]]]]]]]]]]]]]]]])",
+            "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, [89, [144, \
+             [233, [377, [610, [987, [1597, [2584, [4181, [6765, \
+             []]]]]]]]]]]]]]]]]]]]])",
             &env,
         );
     }
@@ -194,5 +196,16 @@ mod tests {
         check_io_str("x", "Ok(4)", &env);
         check_io_str("(set! x (inc x))", "Ok()", &env);
         check_io_str("x", "Ok(5)", &env);
+    }
+
+    #[test]
+    fn test_begin() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "(begin (define one (lambda () 1)) (+ (one) 2))",
+            "Ok(3)",
+            &env,
+        );
     }
 }

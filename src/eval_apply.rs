@@ -54,11 +54,65 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                     env.borrow_mut()
                         .data
                         .insert(symbol_str.clone(), eval_definition);
+                    /*
+                    // * print details
                     println!(
                         ">> Symbol \"{:?}\" defined as {:?}",
                         symbol,
                         env.borrow().lookup(&symbol).unwrap()
                     );
+                    */
+                    Ok(Exp::Empty)
+                }
+
+                "set!" => {
+                    let symbol = match tail.get(0) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("set!: nothing to set!")),
+                    };
+                    let definition = match tail.get(1) {
+                        Some(res) => res.clone(),
+                        None => return Err(ScmErr::from("set!: nothing to set!")),
+                    };
+                    let eval_definition = match eval(definition, Rc::clone(&env)) {
+                        Ok(res) => res,
+                        Err(e) => return Err(e),
+                    };
+                    let key = match symbol.clone() {
+                        Exp::Symbol(res) => res,
+                        _ => return Err(ScmErr::from("set!: expected Symbol")),
+                    };
+                    let target: RcRefCellBox<Env> = {
+                        let mut current = Rc::clone(&env);
+                        let res;
+                        loop {
+                            let outer = match &current.borrow().outer {
+                                Some(x) => Rc::clone(&x),
+                                None => {
+                                    res = Rc::clone(&current);
+                                    break;
+                                }
+                            };
+                            match current.borrow().data.get(&key) {
+                                Some(_) => {
+                                    res = Rc::clone(&current);
+                                    break;
+                                }
+                                None => (),
+                            };
+                            current = outer;
+                        }
+                        res
+                    };
+                    target.borrow_mut().data.insert(key, eval_definition);
+                    /*
+                    // * print details
+                    println!(
+                        ">> Symbol \"{:?}\" set to {:?}",
+                        symbol,
+                        env.borrow().lookup(&symbol).unwrap()
+                    );
+                    */
                     Ok(Exp::Empty)
                 }
 
@@ -110,52 +164,16 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                     Err(ScmErr::from("Missing else clause"))
                 }
 
-                "set!" => {
-                    let symbol = match tail.get(0) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("set!: nothing to set!")),
-                    };
-                    let definition = match tail.get(1) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("set!: nothing to set!")),
-                    };
-                    let eval_definition = match eval(definition, Rc::clone(&env)) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
-                    let key = match symbol.clone() {
-                        Exp::Symbol(res) => res,
-                        _ => return Err(ScmErr::from("set!: expected Symbol")),
-                    };
-                    let target: RcRefCellBox<Env> = {
-                        let mut current = Rc::clone(&env);
-                        let res;
-                        loop {
-                            let outer = match &current.borrow().outer {
-                                Some(x) => Rc::clone(&x),
-                                None => {
-                                    res = Rc::clone(&current);
-                                    break;
-                                }
-                            };
-                            match current.borrow().data.get(&key) {
-                                Some(_) => {
-                                    res = Rc::clone(&current);
-                                    break;
-                                }
-                                None => (),
-                            };
-                            current = outer;
+                "begin" => {
+                    let len = tail.len();
+                    for (i, item) in tail.iter().enumerate() {
+                        if i == len - 1 {
+                            return eval(item.clone(), Rc::clone(&env));
+                        } else {
+                            let _ = eval(item.clone(), Rc::clone(&env));
                         }
-                        res
-                    };
-                    target.borrow_mut().data.insert(key, eval_definition);
-                    println!(
-                        ">> Symbol \"{:?}\" set to {:?}",
-                        symbol,
-                        env.borrow().lookup(&symbol).unwrap()
-                    );
-                    Ok(Exp::Empty)
+                    }
+                    unreachable!()
                 }
 
                 _ => {
