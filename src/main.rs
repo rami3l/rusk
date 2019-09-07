@@ -3,9 +3,13 @@ mod parser;
 mod prelude;
 mod run;
 mod types;
+use std::process;
 
 fn main() {
     // code goes here
     // println!("Hello, rx_rs!");
-    run::repl();
+    if let Err(e) = run::repl() {
+        println!("run: {}", e);
+        process::exit(1);
+    };
 }

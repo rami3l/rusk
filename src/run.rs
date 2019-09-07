@@ -2,20 +2,21 @@ use crate::eval_apply::eval;
 use crate::parser::parse;
 use crate::prelude::get_prelude;
 use std::cell::RefCell;
+use std::error::Error;
 use std::io::{self, Write};
 use std::rc::Rc;
 
-pub fn repl() {
+pub fn repl() -> Result<(), Box<dyn Error>> {
     let mut count = 0;
     let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
     println!("<rx.rs>");
     loop {
         count += 1;
         print!("#;{}> ", count);
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
         // ! read input
         let mut str_exp = String::new();
-        io::stdin().read_line(&mut str_exp).unwrap();
+        io::stdin().read_line(&mut str_exp)?;
         let str_exp = str_exp.trim();
         match str_exp {
             ",q" => {
@@ -34,6 +35,7 @@ pub fn repl() {
             },
         };
     }
+    Ok(())
 }
 
 #[cfg(test)]
