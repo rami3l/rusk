@@ -1,37 +1,10 @@
 use crate::eval_apply::eval;
 use crate::parser::parse;
 use crate::prelude::get_prelude;
-use regex::Regex;
 use rustyline::{error::ReadlineError, Editor};
 use std::cell::RefCell;
 use std::error::Error;
-use std::fs::File;
-use std::io::{self, BufReader, Write};
 use std::rc::Rc;
-
-lazy_static! {
-    static ref RE: Regex =
-        Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
-}
-
-struct InPort {
-    // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
-    file: File,
-    line: String,
-}
-
-impl InPort {
-    fn new(file: File) -> InPort {
-        InPort {
-            file,
-            line: String::new(),
-        }
-    }
-
-    fn next_token(&mut self) {
-        unimplemented!()
-    }
-}
 
 pub fn repl() -> Result<(), Box<dyn Error>> {
     let mut count = 0;
@@ -69,31 +42,6 @@ pub fn repl() -> Result<(), Box<dyn Error>> {
             Err(err) => return Err(Box::new(err)),
         }
     }
-    /*
-        print!("#;{}> ", count);
-        io::stdout().flush()?;
-        // ! read input
-        let mut str_exp = String::new();
-        io::stdin().read_line(&mut str_exp)?;
-        let str_exp = str_exp.trim();
-        match str_exp {
-            ",q" => {
-                println!("Quitting...");
-                break;
-            }
-            _ => match parse(str_exp) {
-                Ok(exp) => {
-                    let val = eval(exp, Rc::clone(&global_env));
-                    println!("=> {:?}", val);
-                }
-                Err(e) => {
-                    println!("Error: {:?}", e);
-                    continue;
-                }
-            },
-        };
-    }
-    */
     Ok(())
 }
 

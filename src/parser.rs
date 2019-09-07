@@ -1,5 +1,9 @@
 use crate::types::*;
+use regex::Regex;
 use std::collections::VecDeque;
+use std::error::Error;
+use std::fs::OpenOptions;
+use std::io::{BufRead, BufReader};
 
 // * Parsing
 
@@ -65,6 +69,89 @@ fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
 pub fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
     let mut ast = tokenize(str_exp);
     gen_ast(&mut ast)
+}
+
+// * Parsing, alternative
+
+lazy_static! {
+    static ref TOKENIZER: Regex =
+        Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
+}
+
+struct InPort {
+    // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
+    file: String,
+    line: String,
+}
+
+impl InPort {
+    fn new(file_str: &str) -> InPort {
+        InPort {
+            file: String::from(file_str),
+            line: String::new(),
+        }
+    }
+
+    fn next_token(&mut self) -> Result<Option<String>, Box<dyn Error>> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(false)
+            .open(&self.file)?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+        loop {
+            if &self.line == "" {
+                self.line = match lines.next() {
+                    Some(Ok(line)) => line,
+                    None => String::new(),
+                    _ => unreachable!(),
+                };
+            }
+            if &self.line == "" {
+                return Ok(None);
+            } else {
+                let next = TOKENIZER.captures_iter(&self.line).next();
+                let (token, rest) = match next {
+                    Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
+                    None => unreachable!(),
+                };
+                self.line = rest;
+                match token.chars().nth(0) {
+                    Some(';') | None => (),
+                    _ => return Ok(Some(token.to_string())),
+                };
+            }
+        }
+    }
+
+    fn read_ahead(&mut self, token: &str) -> Result<Exp, ScmErr> {
+        match token.as_ref() {
+            "(" => {
+                let mut l: VecDeque<Exp> = VecDeque::new();
+                loop {
+                    let next = self.next_token().unwrap();
+                    match next {
+                        Some(t) => match t.as_ref() {
+                            ")" => return Ok(Exp::List(l)),
+                            _ => l.push_back(self.read_ahead(&t).unwrap()),
+                        },
+                        None => return Err(ScmErr::from("parser: Unexpected EOF")),
+                    }
+                }
+            }
+            ")" => Err(ScmErr::from("parser: Extra \")\" found")),
+            // ! quotes unimplemented
+            _ => Ok(atom(token)),
+        }
+    }
+
+    fn read(&mut self) -> Result<Exp, ScmErr> {
+        let next = self.next_token().unwrap();
+        match next {
+            Some(t) => self.read_ahead(&t),
+            None => Ok(Exp::Empty),
+        }
+    }
 }
 
 #[cfg(test)]
