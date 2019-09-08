@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn set() {
+    fn set_simple() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", &env);
@@ -297,8 +297,10 @@ mod tests {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str(
-            "(begin (define one
-            (lambda () 1)) (+ (one) 2))",
+            "(begin
+                (define one
+                    (lambda () 1))
+                (+ (one) 2))",
             "Ok(3)",
             &env,
         );
@@ -309,12 +311,46 @@ mod tests {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str(
-            "(begin (define one
-            ; generating the number 1
-            ;; more quotes
-            (lambda () 1)) (+ (one) 2))",
+            "(begin
+                (define one
+                    ; generating the number 1
+                    ;; more quotes
+                    (lambda () 1))
+                (+ (one) 2))",
             "Ok(3)",
             &env,
         );
+    }
+
+    #[test]
+    fn define_double_with_begin() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "(begin
+                (define three
+                    (begin
+                        (define one
+                            (lambda () 1))
+                        (+ (one) 2)))
+                three)",
+            "Ok(3)",
+            &env,
+        );
+    }
+
+    #[test]
+    fn set_bank_account() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "(define account (lambda (bal) (lambda (amt) (begin (set! bal (+ bal amt)) bal))))",
+            "Ok()",
+            &env,
+        );
+        check_io_str("(define a1 (account 100))", "Ok()", &env);
+        check_io_str("(a1 0)", "Ok(100)", &env);
+        check_io_str("(a1 10)", "Ok(110)", &env);
+        check_io_str("(a1 10)", "Ok(120)", &env);
     }
 }
