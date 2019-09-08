@@ -3,7 +3,7 @@ mod parser;
 mod prelude;
 mod run;
 mod types;
-use crate::parser::{InFile, InPort, Input};
+use crate::parser::{InFile, Input};
 use std::env;
 use std::process;
 

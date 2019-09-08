@@ -1,6 +1,6 @@
 use crate::eval_apply::eval;
 // use crate::parser::parse;
-use crate::parser::{InFile, InPort, Input};
+use crate::parser::{InPort, Input};
 use crate::prelude::get_prelude;
 // use rustyline::{error::ReadlineError, Editor};
 // use std::any::{Any, TypeId};
