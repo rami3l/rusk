@@ -7,72 +7,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader};
 
-/*
-
-// * Parsing
-
-fn tokenize(str_exp: &str) -> VecDeque<String> {
-    let res: VecDeque<_> = str_exp
-        .replace("(", " ( ")
-        .replace(")", " ) ")
-        .split_whitespace()
-        .map(String::from)
-        .collect();
-    res
-}
-
-
-
-fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
-    if tokens.is_empty() {
-        return Err(ScmErr::from("gen_ast: Unexpected EOF"));
-    }
-
-    let head = tokens.pop_front().unwrap();
-    match head.as_ref() {
-        // if we have a list ahead of us, we return that list
-        "(" => {
-            let mut res = VecDeque::new();
-            loop {
-                match tokens.get(0) {
-                    Some(t) => match t.as_ref() {
-                        ")" => break,
-                        _ => match gen_ast(tokens) {
-                            Ok(Exp::List(l)) => res.push_back(Exp::List(l)),
-                            Ok(Exp::Symbol(s)) => res.push_back(Exp::Symbol(s)),
-                            Ok(Exp::Number(f)) => res.push_back(Exp::Number(f)),
-                            // recursion: deal with the tail of the list
-                            // ! Attention: we are appending sub-expressions (including atoms) to the result
-                            // Todo: refactor this function
-                            Err(e) => return Err(e),
-                            _ => {
-                                return Err(ScmErr::from(
-                                    "gen_ast: Expected a deque of Symbol, Number or List",
-                                ))
-                            }
-                        },
-                    },
-                    None => return Err(ScmErr::from("gen_ast: Mismatched parens")),
-                }
-            }
-            tokens.pop_front(); // pop off ")"
-            Ok(Exp::List(res))
-        }
-        ")" => Err(ScmErr::from("gen_ast: Extra \")\" found")),
-
-        // if the head is a single atom, we return just the head
-        _ => Ok(atom(&head)),
-    }
-}
-
-pub fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
-    let mut ast = tokenize(str_exp);
-    gen_ast(&mut ast)
-}
-
-*/
-
-// * Parsing, alternative
+// * Parsing, refactored
 
 fn atom(token: &str) -> Exp {
     match token.parse::<f64>() {
@@ -115,13 +50,17 @@ pub trait InPort {
         }
     }
 
-    fn read(&mut self) -> Result<Exp, ScmErr> {
-        let next = self.next_token();
-        match next {
+    fn read_token(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
+        match token {
             Some(Ok(t)) => self.read_ahead(&t),
             Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         }
+    }
+
+    fn read_next_token(&mut self) -> Result<Exp, ScmErr> {
+        let next = self.next_token();
+        self.read_token(next)
     }
 }
 
@@ -203,15 +142,10 @@ impl Input {
 
 impl InPort for Input {
     fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
-        self.count += 1;
-        match self.editor.readline(&format!("#;{}> ", self.count)) {
-            Ok(s) => {
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(Ok(s))
-                }
-            }
+        // self.count += 1;
+        // self.editor.readline(&format!("#;{}> ", self.count))
+        match self.editor.readline(">> ") {
+            Ok(s) => Some(Ok(s)),
             Err(e) => Some(Err(Box::new(e))),
         }
     }
@@ -222,7 +156,7 @@ impl InPort for Input {
                 self.line = match self.readline() {
                     Some(Ok(line)) => line,
                     None => String::new(),
-                    _ => unreachable!(),
+                    Some(Err(e)) => return Some(Err(e)),
                 };
             }
             if &self.line == "" {

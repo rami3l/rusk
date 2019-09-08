@@ -18,6 +18,8 @@ pub enum Exp {
     Empty,
 }
 
+// TODO: implement fmt::Display for Exp for better user experience
+
 impl fmt::Debug for Exp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let res = match self {

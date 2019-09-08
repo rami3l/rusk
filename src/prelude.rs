@@ -1,5 +1,6 @@
 use crate::types::*;
 use std::collections::VecDeque;
+use std::process;
 
 // * Primitive operators
 
@@ -122,6 +123,17 @@ fn is_null(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
+fn exit(args: &[Exp]) -> Result<Exp, ScmErr> {
+    let mut exit_code: i32 = 0;
+    if !args.is_empty() {
+        exit_code = match args[0] {
+            Exp::Number(n) => n as i32,
+            _ => return Err(ScmErr::from("exit: invalid exit code")),
+        };
+    }
+    process::exit(exit_code);
+}
+
 // * Prelude
 
 pub fn get_prelude() -> Env {
@@ -144,6 +156,8 @@ pub fn get_prelude() -> Env {
     data.insert(String::from("cons"), Exp::Primitive(cons));
 
     data.insert(String::from("null?"), Exp::Primitive(is_null));
+
+    data.insert(String::from("exit"), Exp::Primitive(exit));
 
     data.insert(String::from("#t"), Exp::Bool(true));
     data.insert(String::from("#f"), Exp::Bool(false));
