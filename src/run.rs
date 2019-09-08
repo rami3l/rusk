@@ -1,30 +1,34 @@
 use crate::eval_apply::eval;
-use crate::parser::parse;
-use crate::parser::InPort;
+// use crate::parser::parse;
+use crate::parser::{InFile, InPort, Input};
 use crate::prelude::get_prelude;
-use rustyline::{error::ReadlineError, Editor};
+// use rustyline::{error::ReadlineError, Editor};
+// use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-pub fn repl() -> Result<(), Box<dyn Error>> {
-    let mut count = 0;
+pub fn repl(inport: &mut impl InPort, load: bool) -> Result<(), Box<dyn Error>> {
     let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
-    let mut editor = Editor::<()>::new();
+    let mute: bool = load;
     println!("<rx.rs>");
     loop {
-        count += 1;
-        let readline = editor.readline(&format!("#;{}> ", count));
+        let readline = inport.readline();
         match readline {
-            Ok(line) => match line.as_ref() {
+            None => (),
+            Some(Ok(line)) => match line.as_ref() {
                 ",q" => {
-                    println!("Quit");
+                    if !mute {
+                        println!("Quit");
+                    }
                     break;
                 }
-                _ => match parse(&line) {
+                _ => match inport.read() {
                     Ok(exp) => {
                         let val = eval(exp, Rc::clone(&global_env));
-                        println!("=> {:?}", val);
+                        if !mute {
+                            println!("=> {:?}", val);
+                        }
                     }
                     Err(e) => {
                         println!("Error: {:?}", e);
@@ -32,29 +36,80 @@ pub fn repl() -> Result<(), Box<dyn Error>> {
                     }
                 },
             },
-            Err(ReadlineError::Interrupted) => {
-                println!("CTRL-C");
+            Some(e) => {
+                println!("Readline Error: {:?}", e);
                 break;
-            }
-            Err(ReadlineError::Eof) => {
-                println!("CTRL-D");
-                break;
-            }
-            Err(err) => return Err(Box::new(err)),
+            } // TODO: fix this break
         }
     }
-    Ok(())
+    if load {
+        let mut input = Input::new();
+        repl(&mut input, false)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::{InPort, TOKENIZER};
     use crate::types::*;
 
+    struct MockInput<'a> {
+        line: String,
+        lines: std::str::Lines<'a>,
+    }
+
+    impl<'a> MockInput<'a> {
+        fn new(input: &'a str) -> MockInput<'a> {
+            MockInput {
+                line: String::new(),
+                lines: input.lines(),
+            }
+        }
+    }
+
+    impl<'a> InPort for MockInput<'a> {
+        fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+            match self.lines.next() {
+                Some(line) => (Some(Ok(line.to_string()))),
+                None => None,
+            }
+        }
+
+        fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+            loop {
+                if &self.line == "" {
+                    self.line = match self.readline() {
+                        Some(Ok(line)) => line,
+                        None => String::new(),
+                        _ => unreachable!(),
+                    };
+                }
+                if &self.line == "" {
+                    return None;
+                } else {
+                    let next = TOKENIZER.captures_iter(&self.line).next();
+                    let (token, rest) = match next {
+                        Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
+                        None => unreachable!(),
+                    };
+                    self.line = rest;
+                    match token.chars().nth(0) {
+                        Some(';') | None => (),
+                        _ => return Some(Ok(token.to_string())),
+                    };
+                }
+            }
+        }
+    }
+
     fn check_io_str(input: &str, output: &str, env: &RcRefCellBox<Env>) {
-        let str_exp = input.to_string();
+        // let str_exp = input.to_string();
+        let mut mock = MockInput::new(input);
         let right = output.to_string();
-        let left = match parse(&str_exp) {
+        let left = match mock.read() {
             Ok(exp) => {
                 let val = eval(exp, Rc::clone(env));
                 format!("{:?}", val)

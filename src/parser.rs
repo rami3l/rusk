@@ -1,10 +1,13 @@
 use crate::types::*;
 use regex::Regex;
+use rustyline;
 use std::collections::VecDeque;
 use std::error::Error;
-// use std::fs::File;
+use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::{self, BufRead, BufReader};
+
+/*
 
 // * Parsing
 
@@ -18,12 +21,7 @@ fn tokenize(str_exp: &str) -> VecDeque<String> {
     res
 }
 
-fn atom(token: &str) -> Exp {
-    match token.parse::<f64>() {
-        Ok(num) => Exp::Number(num),
-        Err(_) => Exp::Symbol(token.to_string()),
-    }
-}
+
 
 fn gen_ast(tokens: &mut VecDeque<String>) -> Result<Exp, ScmErr> {
     if tokens.is_empty() {
@@ -72,73 +70,41 @@ pub fn parse(str_exp: &str) -> Result<Exp, ScmErr> {
     gen_ast(&mut ast)
 }
 
+*/
+
 // * Parsing, alternative
 
+fn atom(token: &str) -> Exp {
+    match token.parse::<f64>() {
+        Ok(num) => Exp::Number(num),
+        Err(_) => Exp::Symbol(token.to_string()),
+    }
+}
+
 lazy_static! {
-    static ref TOKENIZER: Regex =
+    pub static ref TOKENIZER: Regex =
         Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 }
 
-pub struct InPort {
+pub trait InPort {
     // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
-    file: Option<String>,
-    line: String,
-}
 
-impl InPort {
-    fn new(file: Option<&str>) -> InPort {
-        InPort {
-            file: match file {
-                Some(f) => Some(String::from(f)),
-                None => None,
-            },
-            line: String::new(),
-        }
-    }
+    fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>>;
 
-    fn next_token(&mut self) -> Result<Option<String>, Box<dyn Error>> {
-        let file: Box<dyn io::Read> = match self.file.as_ref() {
-            Some(f) => Box::new(OpenOptions::new().read(true).write(false).open(f)?),
-            None => Box::new(io::stdin()),
-        };
-        let reader = BufReader::new(file);
-        let mut lines = reader.lines();
-        loop {
-            if &self.line == "" {
-                self.line = match lines.next() {
-                    Some(Ok(line)) => line,
-                    None => String::new(),
-                    _ => unreachable!(),
-                };
-            }
-            if &self.line == "" {
-                return Ok(None);
-            } else {
-                let next = TOKENIZER.captures_iter(&self.line).next();
-                let (token, rest) = match next {
-                    Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
-                    None => unreachable!(),
-                };
-                self.line = rest;
-                match token.chars().nth(0) {
-                    Some(';') | None => (),
-                    _ => return Ok(Some(token.to_string())),
-                };
-            }
-        }
-    }
+    fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>>;
 
     fn read_ahead(&mut self, token: &str) -> Result<Exp, ScmErr> {
-        match token.as_ref() {
+        match token {
             "(" => {
                 let mut l: VecDeque<Exp> = VecDeque::new();
                 loop {
-                    let next = self.next_token().unwrap();
+                    let next = self.next_token();
                     match next {
-                        Some(t) => match t.as_ref() {
+                        Some(Ok(t)) => match t.as_ref() {
                             ")" => return Ok(Exp::List(l)),
                             _ => l.push_back(self.read_ahead(&t).unwrap()),
                         },
+                        Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
                         None => return Err(ScmErr::from("parser: Unexpected EOF")),
                     }
                 }
@@ -149,14 +115,135 @@ impl InPort {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Exp, ScmErr> {
-        let next = self.next_token().unwrap();
+    fn read(&mut self) -> Result<Exp, ScmErr> {
+        let next = self.next_token();
         match next {
-            Some(t) => self.read_ahead(&t),
+            Some(Ok(t)) => self.read_ahead(&t),
+            Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         }
     }
 }
+
+pub struct InFile {
+    file_str: String,
+    line: String,
+    reader: BufReader<File>,
+}
+
+impl InFile {
+    pub fn new(file_str: &str) -> InFile {
+        InFile {
+            file_str: file_str.to_string(),
+            line: String::new(),
+            reader: {
+                let file = OpenOptions::new()
+                    .read(true)
+                    .write(false)
+                    .open(file_str)
+                    .unwrap();
+                BufReader::new(file)
+            },
+        }
+    }
+}
+
+impl InPort for InFile {
+    fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+        let mut line = String::new();
+        match self.reader.read_line(&mut line) {
+            Ok(0) => None,
+            Ok(_) => Some(Ok(line)),
+            Err(e) => Some(Err(Box::new(e))),
+        }
+    }
+
+    fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+        loop {
+            if &self.line == "" {
+                self.line = match self.readline() {
+                    Some(Ok(line)) => line,
+                    None => String::new(),
+                    _ => unreachable!(),
+                };
+            }
+            if &self.line == "" {
+                return None;
+            } else {
+                let next = TOKENIZER.captures_iter(&self.line).next();
+                let (token, rest) = match next {
+                    Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
+                    None => unreachable!(),
+                };
+                self.line = rest;
+                match token.chars().nth(0) {
+                    Some(';') | None => (),
+                    _ => return Some(Ok(token.to_string())),
+                };
+            }
+        }
+    }
+}
+
+pub struct Input {
+    line: String,
+    count: u64,
+    editor: rustyline::Editor<()>,
+}
+
+impl Input {
+    pub fn new() -> Input {
+        Input {
+            line: String::new(),
+            count: 0,
+            editor: rustyline::Editor::<()>::new(),
+        }
+    }
+}
+
+impl InPort for Input {
+    fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+        self.count += 1;
+        match self.editor.readline(&format!("#;{}> ", self.count)) {
+            Ok(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(Ok(s))
+                }
+            }
+            Err(e) => Some(Err(Box::new(e))),
+        }
+    }
+
+    fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+        loop {
+            if &self.line == "" {
+                self.line = match self.readline() {
+                    Some(Ok(line)) => line,
+                    None => String::new(),
+                    _ => unreachable!(),
+                };
+            }
+            if &self.line == "" {
+                return None;
+            } else {
+                let next = TOKENIZER.captures_iter(&self.line).next();
+                let (token, rest) = match next {
+                    Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
+                    None => unreachable!(),
+                };
+                self.line = rest;
+                match token.chars().nth(0) {
+                    Some(';') | None => (),
+                    _ => return Some(Ok(token.to_string())),
+                };
+            }
+        }
+    }
+}
+
+/*
 
 #[cfg(test)]
 mod tests {
@@ -196,3 +283,5 @@ mod tests {
         }
     }
 }
+
+*/
