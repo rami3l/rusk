@@ -8,9 +8,8 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-pub fn repl(inport: &mut impl InPort, load: bool) -> Result<(), Box<dyn Error>> {
+pub fn repl(inport: &mut impl InPort, load_file: bool) -> Result<(), Box<dyn Error>> {
     let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
-    let mute: bool = load;
     println!("<rx.rs>");
     loop {
         let next_token = inport.next_token();
@@ -19,7 +18,7 @@ pub fn repl(inport: &mut impl InPort, load: bool) -> Result<(), Box<dyn Error>> 
             Some(Ok(token_str)) => match inport.read_token(Some(Ok(token_str))) {
                 Ok(exp) => {
                     let val = eval(exp, Rc::clone(&global_env));
-                    if !mute {
+                    if !load_file {
                         println!("=> {:?}", val);
                     }
                 }
@@ -34,7 +33,7 @@ pub fn repl(inport: &mut impl InPort, load: bool) -> Result<(), Box<dyn Error>> 
             } // TODO: fix this break
         }
     }
-    if load {
+    if load_file {
         let mut input = Input::new();
         repl(&mut input, false)
     } else {
@@ -344,7 +343,12 @@ mod tests {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str(
-            "(define account (lambda (bal) (lambda (amt) (begin (set! bal (+ bal amt)) bal))))",
+            "(define account
+                (lambda (bal)
+                    (lambda (amt)
+                        (begin 
+                            (set! bal (+ bal amt)) 
+                            bal))))",
             "Ok()",
             &env,
         );
