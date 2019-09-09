@@ -1,15 +1,13 @@
 use crate::eval_apply::eval;
-// use crate::parser::parse;
-use crate::parser::{InPort, Input};
-use crate::prelude::get_prelude;
+use crate::parser::InPort;
+use crate::types::{Env, RcRefCellBox};
 // use rustyline::{error::ReadlineError, Editor};
 // use std::any::{Any, TypeId};
-use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-pub fn repl(inport: &mut impl InPort, load_file: bool) -> Result<(), Box<dyn Error>> {
-    let global_env = Rc::new(RefCell::new(Box::new(get_prelude())));
+pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box<dyn Error>> {
+    let global_env = Rc::clone(env);
     println!("<rx.rs>");
     loop {
         let next_token = inport.next_token();
@@ -18,9 +16,7 @@ pub fn repl(inport: &mut impl InPort, load_file: bool) -> Result<(), Box<dyn Err
             Some(Ok(token_str)) => match inport.read_exp(Some(Ok(token_str))) {
                 Ok(exp) => {
                     let val = eval(exp, Rc::clone(&global_env));
-                    if !load_file {
-                        println!("=> {:?}", val);
-                    }
+                    println!("=> {:?}", val);
                 }
                 Err(e) => {
                     println!("Error: {:?}", e);
@@ -33,19 +29,17 @@ pub fn repl(inport: &mut impl InPort, load_file: bool) -> Result<(), Box<dyn Err
             } // TODO: fix this break
         }
     }
-    if load_file {
-        let mut input = Input::new();
-        repl(&mut input, false)
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parser::{InPort, TOKENIZER};
+    use crate::prelude::get_prelude;
     use crate::types::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     struct MockInput<'a> {
         line: String,

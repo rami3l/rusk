@@ -1,6 +1,8 @@
 use crate::types::*;
 use std::collections::VecDeque;
 use std::process;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // * Primitive operators
 
@@ -165,4 +167,8 @@ pub fn get_prelude() -> Env {
     data.insert(String::from("null"), Exp::List(VecDeque::new()));
 
     res
+}
+
+pub fn make_env_ptr(env: Env) -> RcRefCellBox<Env> {
+    Rc::new(RefCell::new(Box::new(env)))
 }
