@@ -8,16 +8,16 @@ use std::io::{BufRead, BufReader};
 
 // * Parsing, refactored
 
+lazy_static! {
+    pub static ref TOKENIZER: Regex =
+        Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
+}
+
 fn atom(token: &str) -> Exp {
     match token.parse::<f64>() {
         Ok(num) => Exp::Number(num),
         Err(_) => Exp::Symbol(token.to_string()),
     }
-}
-
-lazy_static! {
-    pub static ref TOKENIZER: Regex =
-        Regex::new(r#"\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"#).unwrap();
 }
 
 pub trait InPort {

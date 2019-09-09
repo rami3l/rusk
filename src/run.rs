@@ -6,9 +6,11 @@ use crate::types::{Env, RcRefCellBox};
 use std::error::Error;
 use std::rc::Rc;
 
+static WELCOME_BANNER: &'static str = "Welcome to rx_rs, a simple Scheme interpreter.";
+
 pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box<dyn Error>> {
     let global_env = Rc::clone(env);
-    println!("<rx.rs>");
+    println!("{}", WELCOME_BANNER);
     loop {
         let next_token = inport.next_token();
         match next_token {
