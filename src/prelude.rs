@@ -1,7 +1,7 @@
 use crate::types::*;
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::process;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 // * Primitive operators
@@ -72,8 +72,6 @@ fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
-// ! begin
-
 fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
     if args.is_empty() {
         return Err(ScmErr::from("car: nothing to car"));
@@ -140,31 +138,28 @@ fn exit(args: &[Exp]) -> Result<Exp, ScmErr> {
 
 pub fn get_prelude() -> Env {
     let mut res = Env::from_outer(None);
-    let data = &mut res.data;
-
-    // initializing the environment
-    data.insert(String::from("+"), Exp::Primitive(add));
-    data.insert(String::from("-"), Exp::Primitive(sub));
-    data.insert(String::from("*"), Exp::Primitive(mul));
-    data.insert(String::from("/"), Exp::Primitive(div));
-    data.insert(String::from("="), Exp::Primitive(eq));
-    data.insert(String::from("<"), Exp::Primitive(lt));
-    data.insert(String::from("<="), Exp::Primitive(le));
-    data.insert(String::from(">"), Exp::Primitive(gt));
-    data.insert(String::from(">="), Exp::Primitive(ge));
-
-    data.insert(String::from("car"), Exp::Primitive(car));
-    data.insert(String::from("cdr"), Exp::Primitive(cdr));
-    data.insert(String::from("cons"), Exp::Primitive(cons));
-
-    data.insert(String::from("null?"), Exp::Primitive(is_null));
-
-    data.insert(String::from("exit"), Exp::Primitive(exit));
-
-    data.insert(String::from("#t"), Exp::Bool(true));
-    data.insert(String::from("#f"), Exp::Bool(false));
-
-    data.insert(String::from("null"), Exp::List(VecDeque::new()));
+    res.data = [
+        ("+", Exp::Primitive(add)),
+        ("-", Exp::Primitive(sub)),
+        ("*", Exp::Primitive(mul)),
+        ("/", Exp::Primitive(div)),
+        ("=", Exp::Primitive(eq)),
+        ("<", Exp::Primitive(lt)),
+        ("<=", Exp::Primitive(le)),
+        (">", Exp::Primitive(gt)),
+        (">=", Exp::Primitive(ge)),
+        ("car", Exp::Primitive(car)),
+        ("cdr", Exp::Primitive(cdr)),
+        ("cons", Exp::Primitive(cons)),
+        ("null?", Exp::Primitive(is_null)),
+        ("exit", Exp::Primitive(exit)),
+        ("#t", Exp::Bool(true)),
+        ("#f", Exp::Bool(false)),
+        ("null", Exp::List(VecDeque::new())),
+    ]
+    .iter()
+    .map(|(key, val)| (key.to_string(), val.clone()))
+    .collect();
 
     res
 }
