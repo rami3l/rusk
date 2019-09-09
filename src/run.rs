@@ -15,7 +15,7 @@ pub fn repl(inport: &mut impl InPort, load_file: bool) -> Result<(), Box<dyn Err
         let next_token = inport.next_token();
         match next_token {
             None => (),
-            Some(Ok(token_str)) => match inport.read_token(Some(Ok(token_str))) {
+            Some(Ok(token_str)) => match inport.read_exp(Some(Ok(token_str))) {
                 Ok(exp) => {
                     let val = eval(exp, Rc::clone(&global_env));
                     if !load_file {
@@ -100,7 +100,7 @@ mod tests {
         // let str_exp = input.to_string();
         let mut mock = MockInput::new(input);
         let right = output.to_string();
-        let left = match mock.read_next_token() {
+        let left = match mock.read_next_exp() {
             Ok(exp) => {
                 let val = eval(exp, Rc::clone(env));
                 format!("{:?}", val)

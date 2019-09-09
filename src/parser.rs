@@ -3,8 +3,7 @@ use regex::Regex;
 use rustyline;
 use std::collections::VecDeque;
 use std::error::Error;
-use std::fs::File;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 
 // * Parsing, refactored
@@ -50,7 +49,8 @@ pub trait InPort {
         }
     }
 
-    fn read_token(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
+    fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
+        // Read an Exp starting from given token.
         match token {
             Some(Ok(t)) => self.read_ahead(&t),
             Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
@@ -58,9 +58,10 @@ pub trait InPort {
         }
     }
 
-    fn read_next_token(&mut self) -> Result<Exp, ScmErr> {
+    fn read_next_exp(&mut self) -> Result<Exp, ScmErr> {
+        // Read an Exp starting from next token.
         let next = self.next_token();
-        self.read_token(next)
+        self.read_exp(next)
     }
 }
 
@@ -126,25 +127,35 @@ impl InPort for InFile {
 
 pub struct Input {
     line: String,
-    count: u64,
     editor: rustyline::Editor<()>,
+    // * The following is for a better REPL experience
+    // count: u64,  // the input expression count
+    ended: bool, // indicates if the expression has ended when a line begins
 }
 
 impl Input {
     pub fn new() -> Input {
         Input {
             line: String::new(),
-            count: 0,
             editor: rustyline::Editor::<()>::new(),
+            // count: 0,
+            ended: true,
         }
     }
 }
 
 impl InPort for Input {
     fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
+        let prompt = if self.ended {
+            // self.count += 1;
+            // format!("#;{}> ", self.count)
+            ">> ".to_string()
+        } else {
+            ".. ".to_string()
+        };
         // self.count += 1;
         // self.editor.readline(&format!("#;{}> ", self.count))
-        match self.editor.readline(">> ") {
+        match self.editor.readline(&prompt) {
             Ok(s) => Some(Ok(s)),
             Err(e) => Some(Err(Box::new(e))),
         }
@@ -174,6 +185,18 @@ impl InPort for Input {
                 };
             }
         }
+    }
+
+    fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
+        // Read an Exp starting from given token, plus modifying the self.ended flag.
+        self.ended = false;
+        let res = match token {
+            Some(Ok(t)) => self.read_ahead(&t),
+            Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
+            None => Ok(Exp::Empty),
+        };
+        self.ended = true;
+        res
     }
 }
 
