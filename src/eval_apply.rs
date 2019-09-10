@@ -173,7 +173,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                             _ => return Err(ScmErr::from("cond: expected Exp::Bool")),
                         }
                     }
-                    Err(ScmErr::from("Missing else clause"))
+                    Err(ScmErr::from("cond: missing else clause"))
                 }
 
                 "begin" => {
