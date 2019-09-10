@@ -24,7 +24,7 @@ impl fmt::Debug for Exp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let res = match self {
             Exp::Bool(b) => format!("{}", b),
-            Exp::Symbol(s) => s.to_string(),
+            Exp::Symbol(s) => format!("'{}", s),
             Exp::Number(n) => format!("{}", n),
             Exp::List(l) => format!("{:?}", l),
             Exp::Closure(_) => "<Closure>".to_string(),

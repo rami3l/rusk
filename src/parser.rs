@@ -20,6 +20,128 @@ fn atom(token: &str) -> Exp {
     }
 }
 
+fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
+    // Handle syntax sugar forms.
+
+    fn require_len(list: &VecDeque<Exp>, min_len: usize) -> Result<(), ScmErr> {
+        let len = list.len();
+        if len < min_len {
+            Err(ScmErr::from(&format!(
+                "desugar: too few arguments ({}/{})",
+                len, min_len
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
+    match exp.clone() {
+        Exp::List(list) => {
+            // println!("Sugar debug: {:?}", list);
+            match list.get(0) {
+                Some(Exp::Symbol(s)) => match s.as_ref() {
+                    "define" => {
+                        // (define (f . args) body+) => (define f (lambda args body+))
+                        match require_len(&list, 3) {
+                            Ok(()) => (),
+                            Err(e) => return Err(e),
+                        };
+                        let f: Exp; // Symbol
+                        let args: Exp; // List
+                        let body: Vec<Exp>;
+                        match &list[1] {
+                            Exp::List(f_args) => {
+                                match require_len(f_args, 1) {
+                                    Ok(()) => (),
+                                    Err(e) => return Err(e),
+                                };
+                                f = match f_args[0].clone() {
+                                    Exp::Symbol(s) => Exp::Symbol(s),
+                                    _ => {
+                                        return Err(ScmErr::from(
+                                            "desugar: can only define a Symbol",
+                                        ))
+                                    }
+                                };
+                                args = {
+                                    let args_deque: VecDeque<Exp> =
+                                        f_args.iter().skip(1).map(|x| x.clone()).collect();
+                                    Exp::List(args_deque)
+                                };
+                                body = list.iter().skip(2).map(|x| x.clone()).collect();
+                                desugar(Exp::List({
+                                    let lambda_args_body: VecDeque<Exp> =
+                                        [Exp::Symbol("lambda".to_string()), args]
+                                            .iter()
+                                            .map(|x| x.clone())
+                                            .chain(body.into_iter())
+                                            .collect();
+                                    let res: VecDeque<Exp> = [
+                                        Exp::Symbol("define".to_string()),
+                                        f,
+                                        Exp::List(lambda_args_body),
+                                    ]
+                                    .iter()
+                                    .map(|x| x.clone())
+                                    .collect();
+                                    // println!("Sugar debug: {:?}", res);
+                                    res
+                                }))
+                            }
+                            _ => {
+                                let res: VecDeque<Exp> =
+                                    list.iter().map(|x| desugar(x.clone()).unwrap()).collect();
+                                // println!("Sugar debug: {:?}", res);
+                                Ok(Exp::List(res))
+                            }
+                        }
+                    }
+
+                    "lambda" => {
+                        // (lambda args body+) => (lambda args (begin body+))
+                        match require_len(&list, 3) {
+                            Ok(()) => (),
+                            Err(e) => return Err(e),
+                        };
+                        let args: Exp = list[1].clone(); // Listargs = list[1].clone();
+                        let body: Vec<Exp> = list.iter().skip(2).map(|x| x.clone()).collect();
+                        let definition = match list.len() {
+                            0 | 1 | 2 => unreachable!(),
+                            3 => list[2].clone(),
+                            _ => {
+                                let begin_body: VecDeque<Exp> = [Exp::Symbol("begin".to_string())]
+                                    .iter()
+                                    .map(|x| x.clone())
+                                    .chain(body.into_iter())
+                                    .collect();
+                                Exp::List(begin_body)
+                            }
+                        };
+                        let lambda_args_definition: VecDeque<Exp> = [
+                            Exp::Symbol("lambda".to_string()),
+                            args,
+                            desugar(definition).unwrap(),
+                        ]
+                        .iter()
+                        .map(|x| x.clone())
+                        .collect();
+                        Ok(Exp::List(lambda_args_definition))
+                    }
+
+                    _ => Ok(exp),
+                },
+
+                _ => {
+                    let res: VecDeque<Exp> =
+                        list.iter().map(|x| desugar(x.clone()).unwrap()).collect();
+                    Ok(Exp::List(res))
+                }
+            }
+        }
+        _ => Ok(exp), // a non-list cannot be expanded.
+    }
+}
+
 pub trait InPort {
     // * An input port/stream based on the implementation on http://norvig.com/lispy2.html
 
@@ -52,7 +174,10 @@ pub trait InPort {
     fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
         // Read an Exp starting from given token.
         match token {
-            Some(Ok(t)) => self.read_ahead(&t),
+            Some(Ok(t)) => match self.read_ahead(&t) {
+                Ok(exp) => desugar(exp),
+                Err(e) => Err(e),
+            },
             Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         }
@@ -191,7 +316,10 @@ impl InPort for Input {
         // Read an Exp starting from given token, plus modifying the self.ended flag.
         self.ended = false;
         let res = match token {
-            Some(Ok(t)) => self.read_ahead(&t),
+            Some(Ok(t)) => match self.read_ahead(&t) {
+                Ok(exp) => desugar(exp),
+                Err(e) => Err(e),
+            },
             Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         };

@@ -353,4 +353,70 @@ mod tests {
         check_io_str("(a1 10)", "Ok(110)", &env);
         check_io_str("(a1 10)", "Ok(120)", &env);
     }
+
+    #[test]
+    fn lambda() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "((lambda (x y z)
+                (+ x
+                   (+ y z))) 1
+                             2
+                             3)",
+            "Ok(6)",
+            &env,
+        );
+    }
+
+    #[test]
+    fn sugar_lambda() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "((lambda (x y z)
+                (quote whatever)
+                (+ x
+                   (+ y z))) 1
+                             2
+                             3)",
+            "Ok(6)",
+            &env,
+        );
+    }
+
+    #[test]
+    fn sugar_define_definition() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "(define (add3 x y z)
+                    (+ x
+                       (+ y z)))",
+            "Ok()",
+            &env,
+        );
+        check_io_str(
+            "(add3 101 
+                      102 
+                      103))",
+            "Ok(306)",
+            &env,
+        );
+    }
+
+    #[test]
+    fn sugar_define_body() {
+        let env: Env = get_prelude();
+        let env = Rc::new(RefCell::new(Box::new(env)));
+        check_io_str(
+            "(define (three)
+                (quote whatever)
+                (define one (lambda () 1))
+                (+ (one) 2))",
+            "Ok()",
+            &env,
+        );
+        check_io_str("(three)", "Ok(3)", &env);
+    }
 }

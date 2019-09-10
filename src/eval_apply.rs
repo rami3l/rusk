@@ -12,11 +12,23 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
         },
         Exp::List(deque) => {
             let list: Vec<Exp> = deque.iter().map(|x| x.clone()).collect();
+            let tail = &list[1..];
             let head = match list.get(0) {
                 Some(Exp::Symbol(res)) => res,
+                Some(Exp::List(_)) => {
+                    // head is a lambda expression
+                    let func = match eval(list[0].clone(), Rc::clone(&env)) {
+                        Ok(res) => res,
+                        Err(e) => return Err(e),
+                    };
+                    let args: Vec<Exp> = tail
+                        .iter()
+                        .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
+                        .collect();
+                    return apply(func, &args[..]);
+                }
                 _ => return Err(ScmErr::from("eval: expected a non-empty list of Symbol")),
             };
-            let tail = &list[1..];
             match head.as_ref() {
                 "quote" => match tail.get(0) {
                     Some(res) => Ok(res.clone()),
@@ -165,15 +177,11 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 "begin" => {
-                    let len = tail.len();
-                    for (i, item) in tail.iter().enumerate() {
-                        if i == len - 1 {
-                            return eval(item.clone(), Rc::clone(&env));
-                        } else {
-                            let _ = eval(item.clone(), Rc::clone(&env));
-                        }
+                    let mut res = Ok(Exp::Empty);
+                    for item in tail.iter() {
+                        res = eval(item.clone(), Rc::clone(&env));
                     }
-                    unreachable!()
+                    res
                 }
 
                 _ => {
