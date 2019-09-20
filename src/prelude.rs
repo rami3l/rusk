@@ -1,6 +1,5 @@
 use crate::types::*;
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::process;
 use std::rc::Rc;
 
@@ -78,7 +77,7 @@ fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
     let pair = args.get(0).unwrap();
     match pair {
-        Exp::List(deque) => match deque.get(0) {
+        Exp::List(list) => match list.get(0) {
             Some(res) => Ok(res.clone()),
             None => Err(ScmErr::from("car: expected a List of length 2")),
         },
@@ -92,7 +91,7 @@ fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
     let pair = args.get(0).unwrap();
     match pair {
-        Exp::List(deque) => match deque.get(1) {
+        Exp::List(list) => match list.get(1) {
             Some(res) => Ok(res.clone()),
             None => Err(ScmErr::from("car: expected a List of length 2")),
         },
@@ -103,7 +102,7 @@ fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
 fn cons(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         [a, b] => {
-            let res: VecDeque<Exp> = [a.clone(), b.clone()].iter().map(|x| x.clone()).collect();
+            let res: Vec<Exp> = [a.clone(), b.clone()].iter().map(|x| x.clone()).collect();
             Ok(Exp::List(res))
         }
         _ => Err(ScmErr::from("cons: expected two Exp to cons")),
@@ -155,7 +154,7 @@ pub fn get_prelude() -> Env {
         ("exit", Exp::Primitive(exit)),
         ("#t", Exp::Bool(true)),
         ("#f", Exp::Bool(false)),
-        ("null", Exp::List(VecDeque::new())),
+        ("null", Exp::List(Vec::new())),
     ]
     .iter()
     .map(|(key, val)| (key.to_string(), val.clone()))

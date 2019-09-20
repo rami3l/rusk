@@ -1,6 +1,5 @@
 use crate::types::*;
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::rc::Rc;
 
 pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
@@ -10,8 +9,8 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
             Some(res) => Ok(res),
             None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
         },
-        Exp::List(deque) => {
-            let list: Vec<Exp> = deque.iter().map(|x| x.clone()).collect();
+        Exp::List(list) => {
+            let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
             let tail = &list[1..];
             let head = match list.get(0) {
                 Some(Exp::Symbol(res)) => res,
@@ -36,8 +35,8 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                 },
 
                 "lambda" => {
-                    let tail_deque: VecDeque<Exp> = tail.iter().map(|x| x.clone()).collect();
-                    let tail = Exp::List(tail_deque);
+                    let tail_list: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
+                    let tail = Exp::List(tail_list);
                     let closure = ScmClosure {
                         body: Box::new(tail),
                         env: Env::from_outer(Some(Rc::clone(&env))),

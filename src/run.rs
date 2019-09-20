@@ -22,13 +22,12 @@ pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box
                 }
                 Err(e) => {
                     println!("Error: {:?}", e);
-                    continue;
                 }
             },
             Some(e) => {
                 println!("Readline Error: {:?}", e);
                 break;
-            } // TODO: fix this break
+            }
         }
     }
     Ok(())
@@ -307,7 +306,7 @@ mod tests {
         let env = Rc::new(RefCell::new(Box::new(env)));
         check_io_str(
             "(begin
-                (define one
+                (define one ; something here
                     ; generating the number 1
                     ;; more quotes
                     (lambda () 1))

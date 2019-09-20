@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -11,8 +11,8 @@ pub type RcRefCellBox<T> = Rc<RefCell<Box<T>>>;
 pub enum Exp {
     Bool(bool),
     Symbol(String),
-    Number(f64),         // ! int unimplemented
-    List(VecDeque<Exp>), // also used as AST
+    Number(f64),    // ! int unimplemented
+    List(Vec<Exp>), // also used as AST
     Closure(ScmClosure),
     Primitive(fn(&[Exp]) -> Result<Exp, ScmErr>),
     Empty,

@@ -20,6 +20,7 @@ fn main() {
     let res = match args.nth(1) {
         Some(path) => {
             let mut inport = InFile::new(&path);
+            println!("Reading file \"{}\"", inport.file_str);
             run::repl(&mut inport, &global_env)
         }
         None => {

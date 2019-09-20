@@ -1,7 +1,6 @@
 use crate::types::*;
 use regex::Regex;
 use rustyline;
-use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
@@ -23,7 +22,7 @@ fn atom(token: &str) -> Exp {
 fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
     // Handle syntax sugar forms.
 
-    fn require_len(list: &VecDeque<Exp>, min_len: usize) -> Result<(), ScmErr> {
+    fn require_len(list: &Vec<Exp>, min_len: usize) -> Result<(), ScmErr> {
         let len = list.len();
         if len < min_len {
             Err(ScmErr::from(&format!(
@@ -64,19 +63,19 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                     }
                                 };
                                 args = {
-                                    let args_deque: VecDeque<Exp> =
+                                    let args_list: Vec<Exp> =
                                         f_args.iter().skip(1).map(|x| x.clone()).collect();
-                                    Exp::List(args_deque)
+                                    Exp::List(args_list)
                                 };
                                 body = list.iter().skip(2).map(|x| x.clone()).collect();
                                 desugar(Exp::List({
-                                    let lambda_args_body: VecDeque<Exp> =
+                                    let lambda_args_body: Vec<Exp> =
                                         [Exp::Symbol("lambda".to_string()), args]
                                             .iter()
                                             .map(|x| x.clone())
                                             .chain(body.into_iter())
                                             .collect();
-                                    let res: VecDeque<Exp> = [
+                                    let res: Vec<Exp> = [
                                         Exp::Symbol("define".to_string()),
                                         f,
                                         Exp::List(lambda_args_body),
@@ -89,7 +88,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                 }))
                             }
                             _ => {
-                                let res: VecDeque<Exp> =
+                                let res: Vec<Exp> =
                                     list.iter().map(|x| desugar(x.clone()).unwrap()).collect();
                                 // println!("Sugar debug: {:?}", res);
                                 Ok(Exp::List(res))
@@ -109,7 +108,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                             0 | 1 | 2 => unreachable!(),
                             3 => list[2].clone(),
                             _ => {
-                                let begin_body: VecDeque<Exp> = [Exp::Symbol("begin".to_string())]
+                                let begin_body: Vec<Exp> = [Exp::Symbol("begin".to_string())]
                                     .iter()
                                     .map(|x| x.clone())
                                     .chain(body.into_iter())
@@ -117,7 +116,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                 Exp::List(begin_body)
                             }
                         };
-                        let lambda_args_definition: VecDeque<Exp> = [
+                        let lambda_args_definition: Vec<Exp> = [
                             Exp::Symbol("lambda".to_string()),
                             args,
                             desugar(definition).unwrap(),
@@ -132,8 +131,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                 },
 
                 _ => {
-                    let res: VecDeque<Exp> =
-                        list.iter().map(|x| desugar(x.clone()).unwrap()).collect();
+                    let res: Vec<Exp> = list.iter().map(|x| desugar(x.clone()).unwrap()).collect();
                     Ok(Exp::List(res))
                 }
             }
@@ -152,13 +150,13 @@ pub trait InPort {
     fn read_ahead(&mut self, token: &str) -> Result<Exp, ScmErr> {
         match token {
             "(" => {
-                let mut l: VecDeque<Exp> = VecDeque::new();
+                let mut l: Vec<Exp> = Vec::new();
                 loop {
                     let next = self.next_token();
                     match next {
                         Some(Ok(t)) => match t.as_ref() {
                             ")" => return Ok(Exp::List(l)),
-                            _ => l.push_back(self.read_ahead(&t).unwrap()),
+                            _ => l.push(self.read_ahead(&t).unwrap()),
                         },
                         Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
                         None => return Err(ScmErr::from("parser: Unexpected EOF")),
@@ -191,7 +189,7 @@ pub trait InPort {
 }
 
 pub struct InFile {
-    file_str: String,
+    pub file_str: String,
     line: String,
     reader: BufReader<File>,
 }
@@ -337,7 +335,7 @@ mod tests {
     #[test]
     fn test_tokenize() {
         let left = "(+ 1 2)";
-        let right: VecDeque<String> = vec!["(", "+", "1", "2", ")"]
+        let right: Vec<String> = vec!["(", "+", "1", "2", ")"]
             .iter()
             .map(|x| x.to_string())
             .collect();
@@ -347,7 +345,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let left = "(+ 1 2)";
-        let right: VecDeque<Exp> = vec![
+        let right: Vec<Exp> = vec![
             Exp::Symbol("+".to_string()),
             Exp::Number(1 as f64),
             Exp::Number(2 as f64),
