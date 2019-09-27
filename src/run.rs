@@ -130,108 +130,126 @@ mod tests {
     fn define_val() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(define x 3)", "Ok()", &env);
-        check_io_str("x", "Ok(3)", &env);
-        check_io_str("(+ x 1)", "Ok(4)", &env);
+        [
+            ("(define x 3)", "Ok()"),
+            ("x", "Ok(3)"),
+            ("(+ x 1)", "Ok(4)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn define_proc_basic() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(define x 3)", "Ok()", &env);
-        check_io_str("x", "Ok(3)", &env);
-        check_io_str("(define one (lambda () 1))", "Ok()", &env);
-        check_io_str("(one)", "Ok(1)", &env);
-        check_io_str("(+ (one) (+ 2 x))", "Ok(6)", &env);
+        [
+            ("(define x 3)", "Ok()"),
+            ("x", "Ok(3)"),
+            ("(define one (lambda () 1))", "Ok()"),
+            ("(one)", "Ok(1)"),
+            ("(+ (one) (+ 2 x))", "Ok(6)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn define_proc_call_prim() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(define x 3)", "Ok()", &env);
-        check_io_str("x", "Ok(3)", &env);
-        check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", &env);
-        check_io_str("(inc 100)", "Ok(101)", &env);
-        check_io_str("(inc x)", "Ok(4)", &env);
+        [
+            ("(define x 3)", "Ok()"),
+            ("x", "Ok(3)"),
+            ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
+            ("(inc 100)", "Ok(101)"),
+            ("(inc x)", "Ok(4)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn cond() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(if #t 123 wtf)", "Ok(123)", &env);
-        check_io_str("(if #f wtf 123)", "Ok(123)", &env);
-        check_io_str(
-            "(cond (#f wtf0) (#f wtf1) (#t 456) (else wtf3))",
-            "Ok(456)",
-            &env,
-        );
-        check_io_str(
-            "(cond (#f wtf0) (#f wtf1) (#f wtf2) (else 789))",
-            "Ok(789)",
-            &env,
-        );
+        [
+            ("(if #t 123 wtf)", "Ok(123)"),
+            ("(if #f wtf 123)", "Ok(123)"),
+            ("(cond (#f wtf0) (#f wtf1) (#t 456) (else wtf3))", "Ok(456)"),
+            ("(cond (#f wtf0) (#f wtf1) (#f wtf2) (else 789))", "Ok(789)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn eq() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(define one (lambda () 1))", "Ok()", &env);
-        check_io_str("(= 1 1)", "Ok(true)", &env);
-        check_io_str("(= 1 (one))", "Ok(true)", &env);
-        check_io_str("(if (= 1 (one)) 123 wtf)", "Ok(123)", &env);
-        check_io_str("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)", &env);
+        [
+            ("(define one (lambda () 1))", "Ok()"),
+            ("(= 1 1)", "Ok(true)"),
+            ("(= 1 (one))", "Ok(true)"),
+            ("(if (= 1 (one)) 123 wtf)", "Ok(123)"),
+            ("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn cons() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(car (cons 123 456))", "Ok(123)", &env);
-        check_io_str("(cdr (cons 123 456))", "Ok(456)", &env);
-        check_io_str("(define p (cons (cons 1 2) (cons 3 4)))", "Ok()", &env);
-        check_io_str("(cdr (car p))", "Ok(2)", &env);
-        check_io_str("(cdr p)", "Ok([3, 4])", &env);
-        check_io_str("p", "Ok([[1, 2], [3, 4]])", &env);
-        check_io_str("(define l (cons 1 (cons 2 (cons 3 null))))", "Ok()", &env);
-        check_io_str("(car (cdr l))", "Ok(2)", &env);
-        check_io_str("(cdr (cdr (cdr l)))", "Ok([])", &env);
+        [
+            ("(car (cons 123 456))", "Ok(123)"),
+            ("(cdr (cons 123 456))", "Ok(456)"),
+            ("(define p (cons (cons 1 2) (cons 3 4)))", "Ok()"),
+            ("(cdr (car p))", "Ok(2)"),
+            ("(cdr p)", "Ok([3, 4])"),
+            ("p", "Ok([[1, 2], [3, 4]])"),
+            ("(define l (cons 1 (cons 2 (cons 3 null))))", "Ok()"),
+            ("(car (cdr l))", "Ok(2)"),
+            ("(cdr (cdr (cdr l)))", "Ok([])"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn fibonacci() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
-            "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str("(fib 20)", "Ok(10946)", &env);
-        check_io_str(
-            "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(range 0 10)",
-            "Ok([0, [1, [2, [3, [4, [5, [6, [7, [8, [9, []]]]]]]]]]])",
-            &env,
-        );
-        check_io_str(
-            "(map fib (range 0 10))",
-            "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, \
-             []]]]]]]]]]])",
-            &env,
-        );
+        [
+            (
+                "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
+                "Ok()",
+            ),
+            (
+                "(fib 20)", 
+                "Ok(10946)"
+            ),
+            (
+                "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
+                "Ok()",
+            ),
+            (
+                "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
+                "Ok()",
+            ),
+            (
+                "(range 0 10)",
+                "Ok([0, [1, [2, [3, [4, [5, [6, [7, [8, [9, []]]]]]]]]]])",
+            ),
+            (
+                "(map fib (range 0 10))",
+                "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, \
+                 []]]]]]]]]]])",
+            ),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
@@ -239,40 +257,44 @@ mod tests {
     fn fibonacci_long() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
-            "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(map fib (range 0 20))",
-            "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, [89, [144, \
-             [233, [377, [610, [987, [1597, [2584, [4181, [6765, \
-             []]]]]]]]]]]]]]]]]]]]])",
-            &env,
-        );
+        [
+            (
+                "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
+                "Ok()",
+            ),
+            (
+                "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))",
+                "Ok()",
+            ),
+            (
+                "(define map (lambda (f l) (if (null? l) null (cons (f (car l)) (map f (cdr l))))))",
+                "Ok()",
+            ),
+            (
+                "(map fib (range 0 20))",
+                "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, [89, [144, \
+                 [233, [377, [610, [987, [1597, [2584, [4181, [6765, \
+                 []]]]]]]]]]]]]]]]]]]]])",
+            ),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn set_simple() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(define inc (lambda (x) (+ x 1)))", "Ok()", &env);
-        check_io_str("(define x 3)", "Ok()", &env);
-        check_io_str("(set! x (inc x))", "Ok()", &env);
-        check_io_str("x", "Ok(4)", &env);
-        check_io_str("(set! x (inc x))", "Ok()", &env);
-        check_io_str("x", "Ok(5)", &env);
+        [
+            ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
+            ("(define x 3)", "Ok()"),
+            ("(set! x (inc x))", "Ok()"),
+            ("x", "Ok(4)"),
+            ("(set! x (inc x))", "Ok()"),
+            ("x", "Ok(5)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
@@ -337,20 +359,23 @@ mod tests {
     fn set_bank_account() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
-            "(define account
-                (lambda (bal)
-                    (lambda (amt)
-                        (begin 
-                            (set! bal (+ bal amt)) 
-                            bal))))",
-            "Ok()",
-            &env,
-        );
-        check_io_str("(define a1 (account 100))", "Ok()", &env);
-        check_io_str("(a1 0)", "Ok(100)", &env);
-        check_io_str("(a1 10)", "Ok(110)", &env);
-        check_io_str("(a1 10)", "Ok(120)", &env);
+        [
+            (
+                "(define account
+                    (lambda (bal)
+                        (lambda (amt)
+                            (begin 
+                                (set! bal (+ bal amt)) 
+                                bal))))",
+                "Ok()",
+            ),
+            ("(define a1 (account 100))", "Ok()"),
+            ("(a1 0)", "Ok(100)"),
+            ("(a1 10)", "Ok(110)"),
+            ("(a1 10)", "Ok(120)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
@@ -388,34 +413,39 @@ mod tests {
     fn sugar_define_definition() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
-            "(define (add3 x y z)
+        [
+            (
+                "(define (add3 x y z)
                     (+ x
                        (+ y z)))",
-            "Ok()",
-            &env,
-        );
-        check_io_str(
-            "(add3 101 
-                      102 
-                      103))",
-            "Ok(306)",
-            &env,
-        );
+                "Ok()",
+            ),
+            (
+                "(add3 101 
+                       102 
+                       103))",
+                "Ok(306)",
+            ),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 
     #[test]
     fn sugar_define_body() {
         let env: Env = get_prelude();
         let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
-            "(define (three)
-                (quote whatever)
-                (define one (lambda () 1))
-                (+ (one) 2))",
-            "Ok()",
-            &env,
-        );
-        check_io_str("(three)", "Ok(3)", &env);
+        [
+            (
+                "(define (three)
+                    (quote whatever)
+                    (define one (lambda () 1))
+                    (+ (one) 2))",
+                "Ok()",
+            ),
+            ("(three)", "Ok(3)"),
+        ]
+        .iter()
+        .for_each(|(i, o)| check_io_str(i, o, &env));
     }
 }
