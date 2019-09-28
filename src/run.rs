@@ -37,9 +37,8 @@ pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box
 mod tests {
     use super::*;
     use crate::parser::{InPort, TOKENIZER};
-    use crate::prelude::get_prelude;
+    use crate::prelude::{get_prelude, make_env_ptr};
     use crate::types::*;
-    use std::cell::RefCell;
     use std::rc::Rc;
 
     struct MockInput<'a> {
@@ -105,104 +104,81 @@ mod tests {
         assert_eq!(left, right);
     }
 
+    fn check_io(pairs: Vec<(&str, &str)>) {
+        let env = make_env_ptr(get_prelude());
+        pairs.iter().for_each(|(i, o)| check_io_str(i, o, &env));
+    }
+
     #[test]
     fn plus_simple() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(+ 1 2)", "Ok(3)", &env);
+        check_io(vec![("(+ 1 2)", "Ok(3)")]);
     }
 
     #[test]
     fn plus_nested() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(+ 1 (* 2 3))", "Ok(7)", &env);
+        check_io(vec![("(+ 1 (* 2 3))", "Ok(7)")]);
     }
 
     #[test]
     fn quote() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str("(quote (1 2 3))", "Ok([1, 2, 3])", &env);
+        check_io(vec![("(quote (1 2 3))", "Ok([1, 2, 3])")]);
     }
 
     #[test]
     fn define_val() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(define x 3)", "Ok()"),
             ("x", "Ok(3)"),
             ("(+ x 1)", "Ok(4)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn define_proc_basic() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(define x 3)", "Ok()"),
             ("x", "Ok(3)"),
             ("(define one (lambda () 1))", "Ok()"),
             ("(one)", "Ok(1)"),
             ("(+ (one) (+ 2 x))", "Ok(6)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn define_proc_call_prim() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(define x 3)", "Ok()"),
             ("x", "Ok(3)"),
             ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
             ("(inc 100)", "Ok(101)"),
             ("(inc x)", "Ok(4)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn cond() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(if #t 123 wtf)", "Ok(123)"),
             ("(if #f wtf 123)", "Ok(123)"),
             ("(cond (#f wtf0) (#f wtf1) (#t 456) (else wtf3))", "Ok(456)"),
             ("(cond (#f wtf0) (#f wtf1) (#f wtf2) (else 789))", "Ok(789)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn eq() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(define one (lambda () 1))", "Ok()"),
             ("(= 1 1)", "Ok(true)"),
             ("(= 1 (one))", "Ok(true)"),
             ("(if (= 1 (one)) 123 wtf)", "Ok(123)"),
             ("(if (= (one) (+ 4 5)) wtf 123)", "Ok(123)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn cons() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(car (cons 123 456))", "Ok(123)"),
             ("(cdr (cons 123 456))", "Ok(456)"),
             ("(define p (cons (cons 1 2) (cons 3 4)))", "Ok()"),
@@ -212,16 +188,12 @@ mod tests {
             ("(define l (cons 1 (cons 2 (cons 3 null))))", "Ok()"),
             ("(car (cdr l))", "Ok(2)"),
             ("(cdr (cdr (cdr l)))", "Ok([])"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn fibonacci() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             (
                 "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
                 "Ok()",
@@ -247,17 +219,13 @@ mod tests {
                 "Ok([1, [1, [2, [3, [5, [8, [13, [21, [34, [55, \
                  []]]]]]]]]]])",
             ),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     #[ignore]
     fn fibonacci_long() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             (
                 "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))",
                 "Ok()",
@@ -276,57 +244,43 @@ mod tests {
                  [233, [377, [610, [987, [1597, [2584, [4181, [6765, \
                  []]]]]]]]]]]]]]]]]]]]])",
             ),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn set_simple() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
             ("(define x 3)", "Ok()"),
             ("(set! x (inc x))", "Ok()"),
             ("x", "Ok(4)"),
             ("(set! x (inc x))", "Ok()"),
             ("x", "Ok(5)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn begin() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "(begin (define one (lambda () 1)) (+ (one) 2))",
             "Ok(3)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn multiline_simple() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "(begin
                 (define one
                     (lambda () 1))
                 (+ (one) 2))",
             "Ok(3)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn multiline_comment() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "(begin
                 (define one ; something here
                     ; generating the number 1
@@ -334,15 +288,12 @@ mod tests {
                     (lambda () 1))
                 (+ (one) 2))",
             "Ok(3)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn define_double_with_begin() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "(begin
                 (define three
                     (begin
@@ -351,15 +302,12 @@ mod tests {
                         (+ (one) 2)))
                 three)",
             "Ok(3)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn set_bank_account() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             (
                 "(define account
                     (lambda (bal)
@@ -373,47 +321,37 @@ mod tests {
             ("(a1 0)", "Ok(100)"),
             ("(a1 10)", "Ok(110)"),
             ("(a1 10)", "Ok(120)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn lambda() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "((lambda (x y z)
-                (+ x
-                   (+ y z))) 1
-                             2
-                             3)",
+                    (+ x
+                       (+ y z))) 1
+                                 2
+                                 3)",
             "Ok(6)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn sugar_lambda() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        check_io_str(
+        check_io(vec![(
             "((lambda (x y z)
-                (quote whatever)
-                (+ x
-                   (+ y z))) 1
-                             2
-                             3)",
+                    (quote whatever)
+                    (+ x
+                       (+ y z))) 1
+                                 2
+                                 3)",
             "Ok(6)",
-            &env,
-        );
+        )]);
     }
 
     #[test]
     fn sugar_define_definition() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             (
                 "(define (add3 x y z)
                     (+ x
@@ -426,16 +364,12 @@ mod tests {
                        103))",
                 "Ok(306)",
             ),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 
     #[test]
     fn sugar_define_body() {
-        let env: Env = get_prelude();
-        let env = Rc::new(RefCell::new(Box::new(env)));
-        [
+        check_io(vec![
             (
                 "(define (three)
                     (quote whatever)
@@ -444,8 +378,6 @@ mod tests {
                 "Ok()",
             ),
             ("(three)", "Ok(3)"),
-        ]
-        .iter()
-        .for_each(|(i, o)| check_io_str(i, o, &env));
+        ]);
     }
 }
