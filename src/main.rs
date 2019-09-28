@@ -13,17 +13,18 @@ use std::process;
 extern crate lazy_static;
 
 fn main() {
-    // code goes here
     // println!("Hello, rx_rs!");
     let mut args = env::args();
     let global_env = make_env_ptr(get_prelude());
     let res = match args.nth(1) {
         Some(path) => {
+            // * Interpret source file
             let mut inport = InFile::new(&path);
             println!("Reading file \"{}\"", inport.file_str);
             run::repl(&mut inport, &global_env)
         }
         None => {
+            // * REPL Mode
             let mut inport = Input::new();
             run::repl(&mut inport, &global_env)
         }

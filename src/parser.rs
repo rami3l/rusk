@@ -156,7 +156,10 @@ pub trait InPort {
                     match next {
                         Some(Ok(t)) => match t.as_ref() {
                             ")" => return Ok(Exp::List(l)),
-                            _ => l.push(self.read_ahead(&t).unwrap()),
+                            _ => match self.read_ahead(&t) {
+                                Ok(exp) => l.push(exp),
+                                Err(e) => return Err(e),
+                            },
                         },
                         Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
                         None => return Err(ScmErr::from("parser: Unexpected EOF")),
@@ -176,7 +179,7 @@ pub trait InPort {
                 Ok(exp) => desugar(exp),
                 Err(e) => Err(e),
             },
-            Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
+            Some(Err(e)) => Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         }
     }
@@ -318,7 +321,7 @@ impl InPort for Input {
                 Ok(exp) => desugar(exp),
                 Err(e) => Err(e),
             },
-            Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
+            Some(Err(e)) => Err(ScmErr::from(&format!("{}", e))),
             None => Ok(Exp::Empty),
         };
         self.ended = true;

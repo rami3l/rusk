@@ -70,21 +70,20 @@ pub struct ScmClosure {
     pub env: Env,
 }
 
-pub enum ScmErr {
-    Reason(String),
+pub struct ScmErr {
+    reason: String,
 }
 
 impl ScmErr {
     pub fn from(reason: &str) -> ScmErr {
-        ScmErr::Reason(String::from(reason))
+        ScmErr {
+            reason: String::from(reason),
+        }
     }
 }
 
 impl fmt::Debug for ScmErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let reason = match self {
-            ScmErr::Reason(res) => res.clone(),
-        };
-        write!(f, "{}", reason)
+        write!(f, "{}", &self.reason)
     }
 }
