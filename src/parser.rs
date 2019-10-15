@@ -15,7 +15,7 @@ lazy_static! {
 fn atom(token: &str) -> Exp {
     match token.parse::<f64>() {
         Ok(num) => Exp::Number(num),
-        Err(_) => Exp::Symbol(token.to_string()),
+        Err(_) => Exp::Symbol(token.into()),
     }
 }
 
@@ -70,13 +70,13 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                 body = list.iter().skip(2).map(|x| x.clone()).collect();
                                 desugar(Exp::List({
                                     let lambda_args_body: Vec<Exp> =
-                                        [Exp::Symbol("lambda".to_string()), args]
+                                        [Exp::Symbol("lambda".into()), args]
                                             .iter()
                                             .map(|x| x.clone())
                                             .chain(body.into_iter())
                                             .collect();
                                     let res: Vec<Exp> = [
-                                        Exp::Symbol("define".to_string()),
+                                        Exp::Symbol("define".into()),
                                         f,
                                         Exp::List(lambda_args_body),
                                     ]
@@ -108,7 +108,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                             0 | 1 | 2 => unreachable!(),
                             3 => list[2].clone(),
                             _ => {
-                                let begin_body: Vec<Exp> = [Exp::Symbol("begin".to_string())]
+                                let begin_body: Vec<Exp> = [Exp::Symbol("begin".into())]
                                     .iter()
                                     .map(|x| x.clone())
                                     .chain(body.into_iter())
@@ -117,7 +117,7 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                             }
                         };
                         let lambda_args_definition: Vec<Exp> = [
-                            Exp::Symbol("lambda".to_string()),
+                            Exp::Symbol("lambda".into()),
                             args,
                             desugar(definition).unwrap(),
                         ]
@@ -200,7 +200,7 @@ pub struct InFile {
 impl InFile {
     pub fn new(file_str: &str) -> InFile {
         InFile {
-            file_str: file_str.to_string(),
+            file_str: file_str.into(),
             line: String::new(),
             reader: {
                 let file = OpenOptions::new()
@@ -244,7 +244,7 @@ impl InPort for InFile {
                 self.line = rest;
                 match token.chars().nth(0) {
                     Some(';') | None => (),
-                    _ => return Some(Ok(token.to_string())),
+                    _ => return Some(Ok(token.into())),
                 };
             }
         }
@@ -307,7 +307,7 @@ impl InPort for Input {
                 self.line = rest;
                 match token.chars().nth(0) {
                     Some(';') | None => (),
-                    _ => return Some(Ok(token.to_string())),
+                    _ => return Some(Ok(token.into())),
                 };
             }
         }

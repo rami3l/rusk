@@ -58,7 +58,7 @@ mod tests {
     impl<'a> InPort for MockInput<'a> {
         fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
             match self.lines.next() {
-                Some(line) => (Some(Ok(line.to_string()))),
+                Some(line) => (Some(Ok(line.into()))),
                 None => None,
             }
         }
@@ -83,7 +83,7 @@ mod tests {
                     self.line = rest;
                     match token.chars().nth(0) {
                         Some(';') | None => (),
-                        _ => return Some(Ok(token.to_string())),
+                        _ => return Some(Ok(token.into())),
                     };
                 }
             }

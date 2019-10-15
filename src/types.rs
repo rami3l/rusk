@@ -27,8 +27,8 @@ impl fmt::Debug for Exp {
             Exp::Symbol(s) => format!("'{}", s),
             Exp::Number(n) => format!("{}", n),
             Exp::List(l) => format!("{:?}", l),
-            Exp::Closure(_) => "<Closure>".to_string(),
-            Exp::Primitive(_) => "<Primitive>".to_string(),
+            Exp::Closure(_) => "<Closure>".into(),
+            Exp::Primitive(_) => "<Primitive>".into(),
             Exp::Empty => String::new(),
         };
         write!(f, "{}", res)
