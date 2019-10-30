@@ -62,9 +62,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                         Ok(res) => res,
                         Err(e) => return Err(e),
                     };
-                    env.borrow_mut()
-                        .data
-                        .insert(symbol_str.clone(), eval_definition);
+                    env.borrow_mut().data.insert(symbol_str, eval_definition);
                     /*
                     // * print details
                     println!(
