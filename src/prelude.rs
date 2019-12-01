@@ -39,35 +39,35 @@ fn div(pair: &[Exp]) -> Result<Exp, ScmErr> {
 fn eq(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a == b)),
-        _ => Err(ScmErr::from("eq: expected Exp::Bool")),
+        _ => Err(ScmErr::from("eq: expected Exp::Number")),
     }
 }
 
 fn lt(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a < b)),
-        _ => Err(ScmErr::from("lt: expected Exp::Bool")),
+        _ => Err(ScmErr::from("lt: expected Exp::Number")),
     }
 }
 
 fn le(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a <= b)),
-        _ => Err(ScmErr::from("le: expected Exp::Bool")),
+        _ => Err(ScmErr::from("le: expected Exp::Number")),
     }
 }
 
 fn gt(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a > b)),
-        _ => Err(ScmErr::from("gt: expected Exp::Bool")),
+        _ => Err(ScmErr::from("gt: expected Exp::Number")),
     }
 }
 
 fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
         &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Bool(a >= b)),
-        _ => Err(ScmErr::from("ge: expected Exp::Bool")),
+        _ => Err(ScmErr::from("ge: expected Exp::Number")),
     }
 }
 
