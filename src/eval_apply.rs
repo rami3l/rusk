@@ -1,5 +1,5 @@
+use crate::prelude::make_env_ptr;
 use crate::types::*;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
@@ -206,7 +206,7 @@ fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
         Exp::Closure(clos) => match *clos.body {
             Exp::List(body) => match body.get(0) {
                 Some(Exp::List(vars)) => {
-                    let local_env = Rc::new(RefCell::new(Box::new(clos.env.clone())));
+                    let local_env = make_env_ptr(clos.env.clone());
                     for (var, arg) in vars.iter().zip(args) {
                         let var = var.clone();
                         let arg = arg.clone();
