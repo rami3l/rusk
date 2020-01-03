@@ -3,17 +3,22 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-pub type RcRefCellBox<T> = Rc<RefCell<Box<T>>>;
-
 // * Types
 
+/// The Scheme Expression type.
 #[derive(Clone)]
 pub enum Exp {
+    /// A Bool (#t/#f).
     Bool(bool),
+    /// A Symbol.
     Symbol(String),
-    Number(f64),    // ! int unimplemented
-    List(Vec<Exp>), // also used as AST
+    /// A Number. Actually a f64.
+    Number(f64), // ! int unimplemented
+    /// A List. Also used as AST.
+    List(Vec<Exp>),
+    /// A user-defined function.
     Closure(ScmClosure),
+    /// A Primitive function. Provided by the Prelude.
     Primitive(fn(&[Exp]) -> Result<Exp, ScmErr>),
     Empty,
 }
@@ -35,14 +40,15 @@ impl fmt::Debug for Exp {
     }
 }
 
+/// The Scheme Environment Model.
 #[derive(Clone)]
 pub struct Env {
     pub data: HashMap<String, Exp>,
-    pub outer: Option<RcRefCellBox<Env>>,
+    pub outer: Option<RcRefCell<Env>>,
 }
 
 impl Env {
-    pub fn from_outer(outer: Option<RcRefCellBox<Env>>) -> Env {
+    pub fn from_outer(outer: Option<RcRefCell<Env>>) -> Env {
         Env {
             data: HashMap::new(),
             outer,
@@ -64,12 +70,18 @@ impl Env {
     }
 }
 
+/// A pointer type for easier Environment Operations
+pub type RcRefCell<T> = Rc<RefCell<T>>;
+
+/// A Closure is a user-defined function.
+/// It has a function body and a captured environment.
 #[derive(Clone)]
 pub struct ScmClosure {
     pub body: Box<Exp>,
     pub env: Env,
 }
 
+#[derive(Debug)]
 pub struct ScmErr {
     reason: String,
 }
@@ -82,8 +94,10 @@ impl ScmErr {
     }
 }
 
-impl fmt::Debug for ScmErr {
+impl fmt::Display for ScmErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &self.reason)
     }
 }
+
+impl std::error::Error for ScmErr {}

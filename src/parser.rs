@@ -41,19 +41,13 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                 Some(Exp::Symbol(s)) => match s.as_ref() {
                     "define" => {
                         // (define (f . args) body+) => (define f (lambda args body+))
-                        match require_len(&list, 3) {
-                            Ok(()) => (),
-                            Err(e) => return Err(e),
-                        };
+                        require_len(&list, 3)?;
                         let f: Exp; // Symbol
                         let args: Exp; // List
                         let body: Vec<Exp>;
                         match &list[1] {
                             Exp::List(f_args) => {
-                                match require_len(f_args, 1) {
-                                    Ok(()) => (),
-                                    Err(e) => return Err(e),
-                                };
+                                require_len(f_args, 1)?;
                                 f = match f_args[0].clone() {
                                     Exp::Symbol(s) => Exp::Symbol(s),
                                     _ => {
@@ -98,11 +92,8 @@ fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
 
                     "lambda" => {
                         // (lambda args body+) => (lambda args (begin body+))
-                        match require_len(&list, 3) {
-                            Ok(()) => (),
-                            Err(e) => return Err(e),
-                        };
-                        let args: Exp = list[1].clone(); // Listargs = list[1].clone();
+                        require_len(&list, 3)?;
+                        let args: Exp = list[1].clone(); // list_args = list[1].clone();
                         let body: Vec<Exp> = list.iter().skip(2).map(|x| x.clone()).collect();
                         let definition = match list.len() {
                             0 | 1 | 2 => unreachable!(),
@@ -172,8 +163,8 @@ pub trait InPort {
         }
     }
 
+    /// Read an Exp starting from given token.
     fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
-        // Read an Exp starting from given token.
         match token {
             Some(Ok(t)) => match self.read_ahead(&t) {
                 Ok(exp) => desugar(exp),
@@ -184,8 +175,8 @@ pub trait InPort {
         }
     }
 
+    /// Read an Exp starting from next token.
     fn read_next_exp(&mut self) -> Result<Exp, ScmErr> {
-        // Read an Exp starting from next token.
         let next = self.next_token();
         self.read_exp(next)
     }
@@ -313,8 +304,9 @@ impl InPort for Input {
         }
     }
 
+    /// Read an Exp starting from given token.
+    /// Modify the self.ended flag at the same time.
     fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
-        // Read an Exp starting from given token, plus modifying the self.ended flag.
         self.ended = false;
         let res = match token {
             Some(Ok(t)) => match self.read_ahead(&t) {

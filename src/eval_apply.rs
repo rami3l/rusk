@@ -2,7 +2,7 @@ use crate::prelude::make_env_ptr;
 use crate::types::*;
 use std::rc::Rc;
 
-pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
+pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
     match exp {
         Exp::Number(_) => Ok(exp),
         Exp::Symbol(s) => match env.borrow().lookup(&Exp::Symbol(s.clone())) {
@@ -16,10 +16,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                 Some(Exp::Symbol(res)) => res,
                 Some(Exp::List(_)) => {
                     // head is a lambda expression
-                    let func = match eval(list[0].clone(), Rc::clone(&env)) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
+                    let func = eval(list[0].clone(), Rc::clone(&env))?;
                     let args: Vec<Exp> = tail
                         .iter()
                         .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
@@ -58,10 +55,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("define: nothing to define")),
                     };
-                    let eval_definition = match eval(definition, Rc::clone(&env)) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
+                    let eval_definition = eval(definition, Rc::clone(&env))?;
                     env.borrow_mut().data.insert(symbol_str, eval_definition);
                     /*
                     // * print details
@@ -83,15 +77,12 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                         Some(res) => res.clone(),
                         None => return Err(ScmErr::from("set!: nothing to set!")),
                     };
-                    let eval_definition = match eval(definition, Rc::clone(&env)) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
+                    let eval_definition = eval(definition, Rc::clone(&env))?;
                     let key = match symbol.clone() {
                         Exp::Symbol(res) => res,
                         _ => return Err(ScmErr::from("set!: expected Symbol")),
                     };
-                    let target: RcRefCellBox<Env> = {
+                    let target: RcRefCell<Env> = {
                         let mut current = Rc::clone(&env);
                         let res;
                         loop {
@@ -182,10 +173,7 @@ pub fn eval(exp: Exp, env: RcRefCellBox<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 _ => {
-                    let func = match eval(Exp::Symbol(head.clone()), Rc::clone(&env)) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
+                    let func = eval(Exp::Symbol(head.clone()), Rc::clone(&env))?;
                     let args: Vec<Exp> = tail
                         .iter()
                         .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
@@ -233,7 +221,7 @@ fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
             _ => Err(ScmErr::from("closure unpacking error: expected a list")),
         },
         _ => Err(ScmErr::from(
-            "apply_scm: a function can only be Exp::Primitive or Exp::Closure",
+            "apply: a function can only be Exp::Primitive or Exp::Closure",
         )),
     }
 }

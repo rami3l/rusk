@@ -163,6 +163,6 @@ pub fn get_prelude() -> Env {
     res
 }
 
-pub fn make_env_ptr(env: Env) -> RcRefCellBox<Env> {
-    Rc::new(RefCell::new(Box::new(env)))
+pub fn make_env_ptr(env: Env) -> RcRefCell<Env> {
+    Rc::new(RefCell::new(env))
 }

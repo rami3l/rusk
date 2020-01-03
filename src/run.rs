@@ -1,6 +1,6 @@
 use crate::eval_apply::eval;
 use crate::parser::InPort;
-use crate::types::{Env, RcRefCellBox};
+use crate::types::{Env, RcRefCell};
 // use rustyline::{error::ReadlineError, Editor};
 // use std::any::{Any, TypeId};
 use std::error::Error;
@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 static WELCOME_BANNER: &'static str = "Welcome to rx_rs, a simple Scheme interpreter.";
 
-pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box<dyn Error>> {
+pub fn repl(inport: &mut impl InPort, env: &RcRefCell<Env>) -> Result<(), Box<dyn Error>> {
     let global_env = Rc::clone(env);
     println!("{}", WELCOME_BANNER);
     loop {
@@ -21,7 +21,7 @@ pub fn repl(inport: &mut impl InPort, env: &RcRefCellBox<Env>) -> Result<(), Box
                     println!("=> {:?}", val);
                 }
                 Err(e) => {
-                    println!("Error: {:?}", e);
+                    println!("Error: {}", e);
                 }
             },
             Some(e) => {
@@ -90,7 +90,7 @@ mod tests {
         }
     }
 
-    fn check_io_str(input: &str, output: &str, env: &RcRefCellBox<Env>) {
+    fn check_io_str(input: &str, output: &str, env: &RcRefCell<Env>) {
         // let str_exp = input.to_string();
         let mut mock = MockInput::new(input);
         let right = output.to_string();
