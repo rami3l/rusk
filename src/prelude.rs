@@ -1,7 +1,6 @@
+pub use crate::types::make_env_ptr;
 use crate::types::*;
-use std::cell::RefCell;
 use std::process;
-use std::rc::Rc;
 
 // * Primitive operators
 
@@ -161,8 +160,4 @@ pub fn get_prelude() -> Env {
     .collect();
 
     res
-}
-
-pub fn make_env_ptr(env: Env) -> RcRefCell<Env> {
-    Rc::new(RefCell::new(env))
 }

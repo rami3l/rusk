@@ -2,6 +2,7 @@ mod eval_apply;
 mod parser;
 mod prelude;
 mod run;
+mod tests;
 mod types;
 
 use crate::parser::{InFile, Input};
