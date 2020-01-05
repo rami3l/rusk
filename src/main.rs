@@ -13,10 +13,10 @@ use std::process;
 #[macro_use]
 extern crate lazy_static;
 
-static WELCOME_BANNER: &'static str = "Welcome to rx_rs, a simple Scheme interpreter.";
+static WELCOME_BANNER: &'static str = "Welcome to rusk, a simple Scheme interpreter.";
 
 fn main() {
-    // println!("Hello, rx_rs!");
+    // println!("Hello, rusk!");
     println!("{}", WELCOME_BANNER);
     let mut args = env::args();
     let global_env = make_env_ptr(get_prelude());
@@ -24,10 +24,10 @@ fn main() {
         Some(path) => {
             // * Interpret source file
             let mut inport = InFile::new(&path);
-            println!("rx_rs: Reading file \"{}\" ...", inport.file_str);
+            println!("rusk: Reading file \"{}\" ...", inport.file_str);
             run::repl(&mut inport, &mut std::io::sink(), &global_env)
                 .expect("Error while loading file.");
-            println!("rx_rs: Source file loaded successfully.");
+            println!("rusk: Source file loaded successfully.");
             let mut inport = Input::new();
             run::repl(&mut inport, &mut std::io::stdout(), &global_env)
         }

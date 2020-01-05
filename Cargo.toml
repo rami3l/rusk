@@ -1,5 +1,5 @@
 [package]
-name = "rx_rs"
+name = "rusk"
 version = "0.1.1"
 authors = ["rami3l <597974733.qq@gmail.com>"]
 edition = "2018"
