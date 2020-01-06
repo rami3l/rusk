@@ -19,7 +19,7 @@ pub fn repl(
                     writeln!(outport, "=> {:?}", val)?;
                 }
                 Err(e) => {
-                    writeln!(outport, "Error: {}", e)?;
+                    writeln!(outport, "Error: {:?}", e)?;
                 }
             },
             Some(e) => {

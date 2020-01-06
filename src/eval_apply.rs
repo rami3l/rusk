@@ -10,6 +10,9 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
             None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
         },
         Exp::List(list) => {
+            if list.is_empty() {
+                return Err(ScmErr::from("eval: expected a non-empty list"));
+            }
             let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
             let tail = &list[1..];
             let head = match list.get(0) {
@@ -23,7 +26,7 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                         .collect();
                     return apply(func, &args[..]);
                 }
-                _ => return Err(ScmErr::from("eval: expected a non-empty list of Symbol")),
+                _ => return Err(ScmErr::from("eval: head of the list is not a function")),
             };
             match head.as_ref() {
                 "quote" => match tail.get(0) {

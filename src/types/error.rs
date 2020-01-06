@@ -1,6 +1,5 @@
 use std::fmt;
 
-#[derive(Debug)]
 pub struct ScmErr {
     reason: String,
 }
@@ -14,6 +13,12 @@ impl ScmErr {
 }
 
 impl fmt::Display for ScmErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self.reason)
+    }
+}
+
+impl fmt::Debug for ScmErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &self.reason)
     }

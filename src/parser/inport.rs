@@ -32,7 +32,7 @@ pub trait InPort {
                 }
             }
             ")" => Err(ScmErr::from("parser: Extra \")\" found")),
-            // ! quotes unimplemented
+            // TODO: quote
             _ => Ok(atom(token)),
         }
     }
