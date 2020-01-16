@@ -18,8 +18,8 @@ impl Env {
         }
     }
 
+    /// Find the definition of a symbol.
     pub fn lookup(&self, symbol: &Exp) -> Option<Exp> {
-        // find the definition of a symbol
         match symbol {
             Exp::Symbol(s) => match self.data.get(s) {
                 Some(def) => Some(def.clone()),

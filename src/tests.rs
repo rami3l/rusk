@@ -195,23 +195,6 @@ mod basics {
     }
 
     #[test]
-    fn define_double_with_begin() {
-        check_io(vec![(
-            "(begin
-                (define four
-                    (begin
-                        (define i 3)
-                        (define one
-                            (lambda () 
-                            (set! i (- i 1))
-                            (- i 1)))
-                        (+ (one) i)))
-                four)",
-            "Ok(4)",
-        )]);
-    }
-
-    #[test]
     fn inline_lambda() {
         check_io(vec![(
             "((lambda (x y z)
@@ -313,6 +296,27 @@ mod environment {
 #[cfg(test)]
 mod general {
     use super::helper::check_io;
+
+    #[test]
+    fn sqrt_200() {
+        check_io(vec![
+            ("(define (abs x) (if (>= x 0) x (- 0 x)))", "Ok()"),
+            (
+                "(define (newton guess function derivative epsilon)
+                    (define guess2 (- guess (/ (function guess) (derivative guess))))
+                    (if (< (abs (- guess guess2)) epsilon) guess2
+                        (newton guess2 function derivative epsilon)))",
+                "Ok()",
+            ),
+            (
+                "(define (square-root a)
+                    (newton 1 (lambda (x) (- (* x x) a)) (lambda (x) (* 2 x)) 1e-8))",
+                "Ok()",
+            ),
+            ("(> (square-root 200) 14.14213)", "Ok(true)"),
+            ("(< (square-root 200) 14.14215)", "Ok(true)"),
+        ]);
+    }
 
     #[test]
     fn fibonacci() {

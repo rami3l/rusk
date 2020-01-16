@@ -95,7 +95,7 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                     "lambda" => {
                         // (lambda args body+) => (lambda args (begin body+))
                         require_len(&list, 3)?;
-                        let args: Exp = list[1].clone(); // list_args = list[1].clone();
+                        let args: Exp = list[1].clone();
                         let body: Vec<Exp> = list.iter().skip(2).map(|x| x.clone()).collect();
                         let definition = match list.len() {
                             0 | 1 | 2 => unreachable!(),
