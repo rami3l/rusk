@@ -11,32 +11,40 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
         },
         Exp::List(list) => {
             if list.is_empty() {
-                return Err(ScmErr::from("eval: expected a non-empty list"));
+                return Err(ScmErr::from("eval: expect a non-empty list"));
             }
+
             let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
             let tail = &list[1..];
-            let head = match list.get(0) {
+
+            // A tiny closure to send a lambda expression to apply
+            let handle_lambda = |exp: Exp| {
+                let func = eval(exp, Rc::clone(&env))?;
+                let args: Vec<Exp> = tail
+                    .iter()
+                    .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
+                    .collect();
+                apply(func, &args[..])
+            };
+
+            let head = match list.first() {
                 Some(Exp::Symbol(res)) => res,
                 Some(Exp::List(_)) => {
-                    // head is a lambda expression
-                    let func = eval(list[0].clone(), Rc::clone(&env))?;
-                    let args: Vec<Exp> = tail
-                        .iter()
-                        .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
-                        .collect();
-                    return apply(func, &args[..]);
+                    // head is an inline lambda expression
+                    return handle_lambda(list[0].clone());
                 }
                 _ => return Err(ScmErr::from("eval: head of the list is not a function")),
             };
+
             match head.as_ref() {
-                "quote" => match tail.get(0) {
+                "quote" => match tail.first() {
                     Some(res) => Ok(res.clone()),
                     None => Err(ScmErr::from("quote: nothing to quote")),
                 },
 
                 "lambda" => {
-                    let tail_list: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
-                    let tail = Exp::List(tail_list);
+                    let tail: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
+                    let tail = Exp::List(tail);
                     let closure = ScmClosure {
                         body: Box::new(tail),
                         env: Env::from_outer(Some(Rc::clone(&env))),
@@ -46,28 +54,17 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 "define" => {
-                    let symbol = match tail.get(0) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("define: nothing to define")),
+                    match tail {
+                        [symbol, definition] => {
+                            let symbol_str = match symbol.clone() {
+                                Exp::Symbol(res) => res.clone(),
+                                _ => return Err(ScmErr::from("define: expected Symbol")),
+                            };
+                            let eval_definition = eval(definition.clone(), Rc::clone(&env))?;
+                            env.borrow_mut().data.insert(symbol_str, eval_definition);
+                        }
+                        _ => return Err(ScmErr::from("define: nothing to define")),
                     };
-                    let symbol_str = match symbol.clone() {
-                        Exp::Symbol(res) => res.clone(),
-                        _ => return Err(ScmErr::from("define: expected Symbol")),
-                    };
-                    let definition = match tail.get(1) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("define: nothing to define")),
-                    };
-                    let eval_definition = eval(definition, Rc::clone(&env))?;
-                    env.borrow_mut().data.insert(symbol_str, eval_definition);
-                    /*
-                    // * print details
-                    println!(
-                        ">> Symbol \"{:?}\" defined as {:?}",
-                        symbol,
-                        env.borrow().lookup(&symbol).unwrap()
-                    );
-                    */
                     Ok(Exp::Empty)
                 }
 
@@ -87,25 +84,21 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                     };
                     let target: RcRefCell<Env> = {
                         let mut current = Rc::clone(&env);
-                        let res;
                         loop {
                             let outer = match &current.borrow().outer {
                                 Some(x) => Rc::clone(&x),
                                 None => {
-                                    res = Rc::clone(&current);
-                                    break;
+                                    break Rc::clone(&current);
                                 }
                             };
                             match current.borrow().data.get(&key) {
                                 Some(_) => {
-                                    res = Rc::clone(&current);
-                                    break;
+                                    break Rc::clone(&current);
                                 }
                                 None => (),
                             };
                             current = outer;
                         }
-                        res
                     };
                     target.borrow_mut().data.insert(key, eval_definition);
                     /*
@@ -176,12 +169,8 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 _ => {
-                    let func = eval(Exp::Symbol(head.clone()), Rc::clone(&env))?;
-                    let args: Vec<Exp> = tail
-                        .iter()
-                        .map(|i| eval(i.clone(), Rc::clone(&env)).unwrap())
-                        .collect();
-                    apply(func, &args[..])
+                    // head is a closure
+                    handle_lambda(Exp::Symbol(head.clone()))
                 }
             }
         }
@@ -195,17 +184,17 @@ fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
         Exp::Primitive(prim) => prim(args),
 
         Exp::Closure(clos) => match *clos.body {
-            Exp::List(body) => match body.get(0) {
+            Exp::List(body) => match body.first() {
                 Some(Exp::List(vars)) => {
                     let local_env = make_env_ptr(clos.env.clone());
                     for (var, arg) in vars.iter().zip(args) {
-                        let var = var.clone();
-                        let arg = arg.clone();
                         match var {
-                            Exp::Symbol(i) => local_env.borrow_mut().data.insert(i, arg),
+                            Exp::Symbol(i) => {
+                                local_env.borrow_mut().data.insert(i.clone(), arg.clone())
+                            }
                             _ => {
                                 return Err(ScmErr::from(
-                                    "closure unpacking error: expected a list of Symbol",
+                                    "closure unpacking error: expected a list of Symbol's",
                                 ))
                             }
                         };

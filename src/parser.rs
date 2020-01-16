@@ -20,9 +20,10 @@ pub fn atom(token: &str) -> Exp {
     }
 }
 
+/// Handles syntax sugar forms.
+// ! This is EXTREMELY DIRTY.
+// TODO: refactor this function in a more elegant way.
 pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
-    // Handle syntax sugar forms.
-
     fn require_len(list: &Vec<Exp>, min_len: usize) -> Result<(), ScmErr> {
         let len = list.len();
         if len < min_len {

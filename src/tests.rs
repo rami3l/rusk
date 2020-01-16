@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod helper {
     use crate::eval_apply::eval;
     use crate::parser::{InPort, TOKENIZER};
     use crate::prelude::{get_prelude, make_env_ptr};
@@ -70,10 +70,15 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    fn check_io(pairs: Vec<(&str, &str)>) {
+    pub fn check_io(pairs: Vec<(&str, &str)>) {
         let env = make_env_ptr(get_prelude());
         pairs.iter().for_each(|(i, o)| check_io_str(i, o, &env));
     }
+}
+
+#[cfg(test)]
+mod basics {
+    use super::helper::check_io;
 
     #[test]
     fn plus_simple() {
@@ -158,6 +163,158 @@ mod tests {
     }
 
     #[test]
+    fn begin() {
+        check_io(vec![(
+            "(begin (define one (lambda () 1)) (+ (one) 2))",
+            "Ok(3)",
+        )]);
+    }
+
+    #[test]
+    fn multiline_simple() {
+        check_io(vec![(
+            "(begin
+                (define one
+                    (lambda () 1))
+                (+ (one) 2))",
+            "Ok(3)",
+        )]);
+    }
+
+    #[test]
+    fn multiline_comment() {
+        check_io(vec![(
+            "(begin
+                (define one ; something here
+                    ; generating the number 1
+                    ;; more quotes
+                    (lambda () 1))
+                (+ (one) 2))",
+            "Ok(3)",
+        )]);
+    }
+
+    #[test]
+    fn define_double_with_begin() {
+        check_io(vec![(
+            "(begin
+                (define four
+                    (begin
+                        (define i 3)
+                        (define one
+                            (lambda () 
+                            (set! i (- i 1))
+                            (- i 1)))
+                        (+ (one) i)))
+                four)",
+            "Ok(4)",
+        )]);
+    }
+
+    #[test]
+    fn inline_lambda() {
+        check_io(vec![(
+            "((lambda (x y z)
+                    (+ x
+                       (+ y z))) 1
+                                 2
+                                 3)",
+            "Ok(6)",
+        )]);
+    }
+}
+
+#[cfg(test)]
+mod sugar {
+    use super::helper::check_io;
+
+    #[test]
+    fn sugar_lambda() {
+        check_io(vec![(
+            "((lambda (x y z)
+                    (quote whatever)
+                    (+ x
+                       (+ y z))) 1
+                                 2
+                                 3)",
+            "Ok(6)",
+        )]);
+    }
+
+    #[test]
+    fn sugar_define_definition() {
+        check_io(vec![
+            (
+                "(define (add3 x y z)
+                    (+ x
+                       (+ y z)))",
+                "Ok()",
+            ),
+            (
+                "(add3 101 
+                       102 
+                       103))",
+                "Ok(306)",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn sugar_define_body() {
+        check_io(vec![
+            (
+                "(define (three)
+                    (quote whatever)
+                    (define one (lambda () 1))
+                    (+ (one) 2))",
+                "Ok()",
+            ),
+            ("(three)", "Ok(3)"),
+        ]);
+    }
+}
+
+#[cfg(test)]
+mod environment {
+    use super::helper::check_io;
+
+    #[test]
+    fn set_simple() {
+        check_io(vec![
+            ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
+            ("(define x 3)", "Ok()"),
+            ("(set! x (inc x))", "Ok()"),
+            ("x", "Ok(4)"),
+            ("(set! x (inc x))", "Ok()"),
+            ("x", "Ok(5)"),
+        ]);
+    }
+
+    #[test]
+    fn set_bank_account() {
+        check_io(vec![
+            (
+                "(define account
+                    (lambda (bal)
+                        (lambda (amt)
+                            (begin 
+                                (set! bal (+ bal amt)) 
+                                bal))))",
+                "Ok()",
+            ),
+            ("(define a1 (account 100))", "Ok()"),
+            ("(a1 0)", "Ok(100)"),
+            ("(a1 10)", "Ok(110)"),
+            ("(a1 10)", "Ok(120)"),
+        ]);
+    }
+}
+
+#[cfg(test)]
+mod general {
+    use super::helper::check_io;
+
+    #[test]
     fn fibonacci() {
         check_io(vec![
             (
@@ -214,136 +371,18 @@ mod tests {
     }
 
     #[test]
-    fn set_simple() {
-        check_io(vec![
-            ("(define inc (lambda (x) (+ x 1)))", "Ok()"),
-            ("(define x 3)", "Ok()"),
-            ("(set! x (inc x))", "Ok()"),
-            ("x", "Ok(4)"),
-            ("(set! x (inc x))", "Ok()"),
-            ("x", "Ok(5)"),
-        ]);
-    }
-
-    #[test]
-    fn begin() {
-        check_io(vec![(
-            "(begin (define one (lambda () 1)) (+ (one) 2))",
-            "Ok(3)",
-        )]);
-    }
-
-    #[test]
-    fn multiline_simple() {
-        check_io(vec![(
-            "(begin
-                (define one
-                    (lambda () 1))
-                (+ (one) 2))",
-            "Ok(3)",
-        )]);
-    }
-
-    #[test]
-    fn multiline_comment() {
-        check_io(vec![(
-            "(begin
-                (define one ; something here
-                    ; generating the number 1
-                    ;; more quotes
-                    (lambda () 1))
-                (+ (one) 2))",
-            "Ok(3)",
-        )]);
-    }
-
-    #[test]
-    fn define_double_with_begin() {
-        check_io(vec![(
-            "(begin
-                (define three
-                    (begin
-                        (define one
-                            (lambda () 1))
-                        (+ (one) 2)))
-                three)",
-            "Ok(3)",
-        )]);
-    }
-
-    #[test]
-    fn set_bank_account() {
+    fn man_or_boy() {
         check_io(vec![
             (
-                "(define account
-                    (lambda (bal)
-                        (lambda (amt)
-                            (begin 
-                                (set! bal (+ bal amt)) 
-                                bal))))",
-                "Ok()",
-            ),
-            ("(define a1 (account 100))", "Ok()"),
-            ("(a1 0)", "Ok(100)"),
-            ("(a1 10)", "Ok(110)"),
-            ("(a1 10)", "Ok(120)"),
-        ]);
-    }
-
-    #[test]
-    fn lambda() {
-        check_io(vec![(
-            "((lambda (x y z)
-                    (+ x
-                       (+ y z))) 1
-                                 2
-                                 3)",
-            "Ok(6)",
-        )]);
-    }
-
-    #[test]
-    fn sugar_lambda() {
-        check_io(vec![(
-            "((lambda (x y z)
-                    (quote whatever)
-                    (+ x
-                       (+ y z))) 1
-                                 2
-                                 3)",
-            "Ok(6)",
-        )]);
-    }
-
-    #[test]
-    fn sugar_define_definition() {
-        check_io(vec![
-            (
-                "(define (add3 x y z)
-                    (+ x
-                       (+ y z)))",
+                "(define A (lambda (k x1 x2 x3 x4 x5) 
+                    (define B (lambda () (set! k (- k 1)) (A k B x1 x2 x3 x4))) 
+                    (if (<= k 0) (+ (x4) (x5)) (B))))",
                 "Ok()",
             ),
             (
-                "(add3 101 
-                       102 
-                       103))",
-                "Ok(306)",
+                "(A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0))",
+                "Ok(-67)",
             ),
-        ]);
-    }
-
-    #[test]
-    fn sugar_define_body() {
-        check_io(vec![
-            (
-                "(define (three)
-                    (quote whatever)
-                    (define one (lambda () 1))
-                    (+ (one) 2))",
-                "Ok()",
-            ),
-            ("(three)", "Ok(3)"),
         ]);
     }
 }
