@@ -71,7 +71,7 @@ fn ge(pair: &[Exp]) -> Result<Exp, ScmErr> {
 }
 
 fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
-    if args.is_empty() {
+    if args.len() != 1 {
         return Err(ScmErr::from("car: nothing to car"));
     }
     let pair = args.get(0).unwrap();
@@ -85,7 +85,7 @@ fn car(args: &[Exp]) -> Result<Exp, ScmErr> {
 }
 
 fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
-    if args.is_empty() {
+    if args.len() != 1 {
         return Err(ScmErr::from("cdr: nothing to cdr"));
     }
     let pair = args.get(0).unwrap();
@@ -121,6 +121,23 @@ fn is_null(args: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
+fn display(args: &[Exp]) -> Result<Exp, ScmErr> {
+    if args.len() != 1 {
+        return Err(ScmErr::from("display: nothing to display"));
+    }
+    let res = args.first().unwrap();
+    print!("{:?}", *res);
+    Ok(Exp::Empty)
+}
+
+fn newline(args: &[Exp]) -> Result<Exp, ScmErr> {
+    if !args.is_empty() {
+        return Err(ScmErr::from("newline: too many arguments"));
+    }
+    println!();
+    Ok(Exp::Empty)
+}
+
 fn exit(args: &[Exp]) -> Result<Exp, ScmErr> {
     let mut exit_code: i32 = 0;
     if !args.is_empty() {
@@ -150,6 +167,8 @@ pub fn get_prelude() -> Env {
         ("cdr", Exp::Primitive(cdr)),
         ("cons", Exp::Primitive(cons)),
         ("null?", Exp::Primitive(is_null)),
+        ("display", Exp::Primitive(display)),
+        ("newline", Exp::Primitive(newline)),
         ("exit", Exp::Primitive(exit)),
         ("#t", Exp::Bool(true)),
         ("#f", Exp::Bool(false)),

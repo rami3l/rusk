@@ -14,29 +14,36 @@ use std::process;
 extern crate lazy_static;
 
 static WELCOME_BANNER: &'static str = "Welcome to rusk, a simple Scheme interpreter.";
+static STLIB_PATH: &'static str = "./scheme/stdlib.rkt";
 
 fn main() {
     // println!("Hello, rusk!");
     println!("{}", WELCOME_BANNER);
     let mut args = env::args();
     let global_env = make_env_ptr(get_prelude());
-    let res = match args.nth(1) {
-        Some(path) => {
-            // * Interpret source file
-            let mut inport = InFile::new(&path);
-            println!("rusk: Reading file \"{}\" ...", inport.file_str);
-            run::repl(&mut inport, &mut std::io::sink(), &global_env)
-                .expect("Error while loading file.");
-            println!("rusk: Source file loaded successfully.");
-            let mut inport = Input::new();
-            run::repl(&mut inport, &mut std::io::stdout(), &global_env)
-        }
-        None => {
-            // * REPL Mode
-            let mut inport = Input::new();
-            run::repl(&mut inport, &mut std::io::stdout(), &global_env)
-        }
+
+    // Interpret source file
+    let read_source_file = |path: &str| {
+        let mut inport = InFile::new(path);
+        println!("rusk: Reading file \"{}\" ...", inport.file_str);
+        run::repl(&mut inport, &mut std::io::sink(), &global_env)
+            .expect("Error while loading file.");
+        println!("rusk: Source file loaded successfully.");
     };
+
+    let res = {
+        // Load stdlib
+        read_source_file(STLIB_PATH);
+
+        if let Some(path) = args.nth(1) {
+            read_source_file(&path);
+        };
+
+        // Start REPL Mode
+        let mut inport = Input::new();
+        run::repl(&mut inport, &mut std::io::stdout(), &global_env)
+    };
+
     if let Err(e) = res {
         println!("run: {}", e);
         process::exit(1);

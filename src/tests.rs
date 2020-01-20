@@ -148,7 +148,7 @@ mod basics {
     }
 
     #[test]
-    fn cons() {
+    fn cons_car_cdr() {
         check_io(vec![
             ("(car (cons 123 456))", "Ok(123)"),
             ("(cdr (cons 123 456))", "Ok(456)"),

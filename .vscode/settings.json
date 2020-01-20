@@ -2,6 +2,10 @@
     "cSpell.words": [
         "cond",
         "eval",
-        "inport"
+        "inport",
+        "multiline",
+        "readline",
+        "rustyline",
+        "stdlib"
     ]
 }
