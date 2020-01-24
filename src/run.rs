@@ -23,7 +23,7 @@ pub fn repl(
                 }
             },
             Some(e) => {
-                writeln!(outport, "Readline Error: {:?}", e)?;
+                eprintln!("Readline Error: {:?}", e);
                 break;
             }
         }

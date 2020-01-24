@@ -376,6 +376,7 @@ mod general {
 
     #[test]
     fn man_or_boy() {
+        // ! Doesn't work. Looks related to the lambda -> lambda-begin expansion
         check_io(vec![
             (
                 "(define A (lambda (k x1 x2 x3 x4 x5) 

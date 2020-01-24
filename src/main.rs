@@ -14,7 +14,7 @@ use std::process;
 extern crate lazy_static;
 
 static WELCOME_BANNER: &'static str = "Welcome to rusk, a simple Scheme interpreter.";
-static STLIB_PATH: &'static str = "./scheme/stdlib.rkt";
+static STDLIB_PATH: &'static str = "./scheme/stdlib.rkt";
 
 fn main() {
     // println!("Hello, rusk!");
@@ -25,15 +25,15 @@ fn main() {
     // Interpret source file
     let read_source_file = |path: &str| {
         let mut inport = InFile::new(path);
-        println!("rusk: Reading file \"{}\" ...", inport.file_str);
+        print!(".. Reading `{}`: ", inport.file_str);
         run::repl(&mut inport, &mut std::io::sink(), &global_env)
             .expect("Error while loading file.");
-        println!("rusk: Source file loaded successfully.");
+        println!("Done.");
     };
 
     let res = {
         // Load stdlib
-        read_source_file(STLIB_PATH);
+        read_source_file(STDLIB_PATH);
 
         if let Some(path) = args.nth(1) {
             read_source_file(&path);
@@ -45,7 +45,7 @@ fn main() {
     };
 
     if let Err(e) = res {
-        println!("run: {}", e);
+        eprintln!("run: {}", e);
         process::exit(1);
     };
 }
