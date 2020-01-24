@@ -1,0 +1,13 @@
+name: rusk
+version: "0.1.2"
+author: rami3l <rami3l@outlook.com>
+about: Does awesome things
+args:
+    - repl:
+        short: i
+        long: repl
+        help: REPL mode
+    - INPUT:
+        help: Sets the input file to use
+        required: false
+        index: 1
