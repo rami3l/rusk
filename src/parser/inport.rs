@@ -41,7 +41,9 @@ pub trait InPort {
     fn read_exp(&mut self, token: Option<Result<String, Box<dyn Error>>>) -> Result<Exp, ScmErr> {
         match token {
             Some(Ok(t)) => match self.read_ahead(&t) {
+                // * Enable/Disable desugaring
                 Ok(exp) => desugar(exp),
+                // Ok(exp) => Ok(exp),
                 Err(e) => Err(e),
             },
             Some(Err(e)) => Err(ScmErr::from(&format!("{}", e))),
@@ -184,7 +186,9 @@ impl InPort for Input {
         self.ended = false;
         let res = match token {
             Some(Ok(t)) => match self.read_ahead(&t) {
+                // * Enable/Disable desugaring
                 Ok(exp) => desugar(exp),
+                // Ok(exp) => Ok(exp),
                 Err(e) => Err(e),
             },
             Some(Err(e)) => Err(ScmErr::from(&format!("{}", e))),

@@ -92,6 +92,7 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                         }
                     }
 
+                    /*
                     "lambda" => {
                         // (lambda args body+) => (lambda args (begin body+))
                         require_len(&list, 3)?;
@@ -119,7 +120,7 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                         .collect();
                         Ok(Exp::List(lambda_args_definition))
                     }
-
+                    */
                     _ => Ok(exp),
                 },
 

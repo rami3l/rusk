@@ -199,12 +199,15 @@ fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
                             }
                         };
                     }
-                    match body.get(1) {
-                        Some(exp) => eval(exp.clone(), local_env),
-                        None => {
-                            return Err(ScmErr::from("closure unpacking error: missing definition"))
-                        }
+                    let definition = &body[1..];
+                    if definition.is_empty() {
+                        return Err(ScmErr::from("closure unpacking error: missing definition"));
                     }
+                    let mut res: Result<Exp, ScmErr> = Ok(Exp::Empty);
+                    for exp in definition {
+                        res = eval(exp.clone(), Rc::clone(&local_env));
+                    }
+                    res
                 }
                 _ => Err(ScmErr::from(
                     "closure unpacking error: expected a non-empty list",
