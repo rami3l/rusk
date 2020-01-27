@@ -1,7 +1,7 @@
 name: rusk
 version: "0.1.2"
 author: rami3l <rami3l@outlook.com>
-about: Does awesome things
+about: A WIP baby Scheme interpreter in Rust.
 args:
     - repl:
         short: i

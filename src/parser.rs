@@ -92,35 +92,6 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                         }
                     }
 
-                    /*
-                    "lambda" => {
-                        // (lambda args body+) => (lambda args (begin body+))
-                        require_len(&list, 3)?;
-                        let args: Exp = list[1].clone();
-                        let body: Vec<Exp> = list.iter().skip(2).map(|x| x.clone()).collect();
-                        let definition = match list.len() {
-                            0 | 1 | 2 => unreachable!(),
-                            3 => list[2].clone(),
-                            _ => {
-                                let begin_body: Vec<Exp> = [Exp::Symbol("begin".into())]
-                                    .iter()
-                                    .map(|x| x.clone())
-                                    .chain(body.into_iter())
-                                    .collect();
-                                Exp::List(begin_body)
-                            }
-                        };
-                        let lambda_args_definition: Vec<Exp> = [
-                            Exp::Symbol("lambda".into()),
-                            args,
-                            desugar(definition).unwrap(),
-                        ]
-                        .iter()
-                        .map(|x| x.clone())
-                        .collect();
-                        Ok(Exp::List(lambda_args_definition))
-                    }
-                    */
                     _ => Ok(exp),
                 },
 

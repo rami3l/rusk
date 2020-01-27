@@ -160,13 +160,9 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                     Err(ScmErr::from("cond: missing else clause"))
                 }
 
-                "begin" => {
-                    let mut res = Ok(Exp::Empty);
-                    for item in tail.iter() {
-                        res = eval(item.clone(), Rc::clone(&env));
-                    }
-                    res
-                }
+                "begin" => tail.iter().fold(Ok(Exp::Empty), |_seed, item| {
+                    eval(item.clone(), Rc::clone(&env))
+                }),
 
                 _ => {
                     // head is a closure
@@ -203,11 +199,9 @@ fn apply(func: Exp, args: &[Exp]) -> Result<Exp, ScmErr> {
                     if definition.is_empty() {
                         return Err(ScmErr::from("closure unpacking error: missing definition"));
                     }
-                    let mut res: Result<Exp, ScmErr> = Ok(Exp::Empty);
-                    for exp in definition {
-                        res = eval(exp.clone(), Rc::clone(&local_env));
-                    }
-                    res
+                    definition.iter().fold(Ok(Exp::Empty), |_seed, exp| {
+                        eval(exp.clone(), Rc::clone(&local_env))
+                    })
                 }
                 _ => Err(ScmErr::from(
                     "closure unpacking error: expected a non-empty list",

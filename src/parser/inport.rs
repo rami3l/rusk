@@ -21,10 +21,7 @@ pub trait InPort {
                     match next {
                         Some(Ok(t)) => match t.as_ref() {
                             ")" => return Ok(Exp::List(l)),
-                            _ => match self.read_ahead(&t) {
-                                Ok(exp) => l.push(exp),
-                                Err(e) => return Err(e),
-                            },
+                            _ => l.push(self.read_ahead(&t)?),
                         },
                         Some(Err(e)) => return Err(ScmErr::from(&format!("{}", e))),
                         None => return Err(ScmErr::from("parser: Unexpected EOF")),
