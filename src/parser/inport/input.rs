@@ -32,7 +32,7 @@ impl InPort for Input {
         self.line = new_line.into();
     }
 
-    fn readline(&self) -> Option<Result<String, Box<dyn Error>>> {
+    fn read_line(&self) -> Option<Result<String, Box<dyn Error>>> {
         let prompt = if self.ended {
             // self.count += 1;
             // format!("#;{}> ", self.count)

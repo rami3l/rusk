@@ -5,6 +5,7 @@
         "infile",
         "inport",
         "multiline",
+        "read_line",
         "readline",
         "rustyline",
         "stdlib"

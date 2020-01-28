@@ -36,7 +36,7 @@ impl InPort for InFile {
         self.line = new_line.into();
     }
 
-    fn readline(&self) -> Option<Result<String, Box<dyn Error>>> {
+    fn read_line(&self) -> Option<Result<String, Box<dyn Error>>> {
         let mut line = String::new();
         match self.reader.borrow_mut().read_line(&mut line) {
             Ok(0) => None,

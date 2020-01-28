@@ -15,12 +15,12 @@ pub trait InPort {
 
     fn set_line(&mut self, new_line: &str);
 
-    fn readline(&self) -> Option<Result<String, Box<dyn Error>>>;
+    fn read_line(&self) -> Option<Result<String, Box<dyn Error>>>;
 
     fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
         loop {
             if self.line().is_empty() {
-                self.set_line(&match self.readline() {
+                self.set_line(&match self.read_line() {
                     Some(Ok(line)) => line,
                     None => String::new(),
                     Some(Err(e)) => return Some(Err(e)),

@@ -31,7 +31,7 @@ mod helper {
             self.line = new_line.into();
         }
 
-        fn readline(&self) -> Option<Result<String, Box<dyn Error>>> {
+        fn read_line(&self) -> Option<Result<String, Box<dyn Error>>> {
             match self.lines.borrow_mut().next() {
                 Some(line) => (Some(Ok(line.into()))),
                 None => None,
@@ -41,7 +41,7 @@ mod helper {
         fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
             loop {
                 if &self.line == "" {
-                    self.line = match self.readline() {
+                    self.line = match self.read_line() {
                         Some(Ok(line)) => line,
                         None => String::new(),
                         _ => unreachable!(),
