@@ -33,9 +33,9 @@ pub trait InPort {
             } else {
                 let line = self.line().unwrap();
                 let next = TOKENIZER.captures_iter(&line).next();
-                let (token, rest) = {
+                let (token, rest): (String, String) = {
                     let cap = next.unwrap();
-                    (String::from(&cap[1]), String::from(&cap[2]))
+                    (cap[1].into(), cap[2].into())
                 };
                 self.set_line(Some(rest));
                 match token.chars().nth(0) {
@@ -68,7 +68,7 @@ pub trait InPort {
         }
     }
 
-    /// Read an Exp starting from given token.
+    /// Read an Exp starting from the given token.
     fn read_exp(&mut self, token: Result<Option<String>, Box<dyn Error>>) -> Result<Exp, ScmErr> {
         match token {
             Ok(Some(t)) => match self.read_ahead(&t) {
@@ -82,7 +82,7 @@ pub trait InPort {
         }
     }
 
-    /// Read an Exp starting from next token.
+    /// Read an Exp starting from the next token.
     fn read_next_exp(&mut self) -> Result<Exp, ScmErr> {
         let next = self.next_token();
         self.read_exp(next)

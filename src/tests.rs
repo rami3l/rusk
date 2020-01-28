@@ -333,6 +333,27 @@ mod general {
     }
 
     #[test]
+    fn man_or_boy() {
+        check_io(vec![
+            (
+                "(define A (lambda (k x1 x2 x3 x4 x5) 
+                    (define B (lambda () (set! k (- k 1)) (A k B x1 x2 x3 x4))) 
+                    (if (<= k 0) (+ (x4) (x5)) (B))))",
+                "Ok()",
+            ),
+            (
+                "(A 4 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0))",
+                "Ok(1)",
+            ),
+        ]);
+    }
+}
+
+#[cfg(test)]
+mod big {
+    use super::helper::check_io;
+
+    #[test]
     #[ignore]
     fn fibonacci_long() {
         check_io(vec![
@@ -358,8 +379,8 @@ mod general {
     }
 
     #[test]
-    fn man_or_boy() {
-        // ! Doesn't work. Looks related to the lambda -> lambda-begin expansion
+    #[ignore]
+    fn man_or_boy_long() {
         check_io(vec![
             (
                 "(define A (lambda (k x1 x2 x3 x4 x5) 
