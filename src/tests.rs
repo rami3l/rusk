@@ -4,26 +4,35 @@ mod helper {
     use crate::parser::{InPort, TOKENIZER};
     use crate::prelude::{get_prelude, make_env_ptr};
     use crate::types::*;
+    use std::cell::RefCell;
     use std::error::Error;
     use std::rc::Rc;
 
     struct MockInput<'a> {
         line: String,
-        lines: std::str::Lines<'a>,
+        lines: RefCell<std::str::Lines<'a>>,
     }
 
     impl<'a> MockInput<'a> {
-        fn new(input: &'a str) -> MockInput<'a> {
-            MockInput {
+        fn new(input: &'a str) -> Self {
+            Self {
                 line: String::new(),
-                lines: input.lines(),
+                lines: RefCell::new(input.lines()),
             }
         }
     }
 
     impl<'a> InPort for MockInput<'a> {
-        fn readline(&mut self) -> Option<Result<String, Box<dyn Error>>> {
-            match self.lines.next() {
+        fn line(&self) -> String {
+            self.line.clone()
+        }
+
+        fn set_line(&mut self, new_line: &str) {
+            self.line = new_line.into();
+        }
+
+        fn readline(&self) -> Option<Result<String, Box<dyn Error>>> {
+            match self.lines.borrow_mut().next() {
                 Some(line) => (Some(Ok(line.into()))),
                 None => None,
             }
