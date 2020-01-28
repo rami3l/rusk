@@ -12,8 +12,8 @@ pub fn repl(
     loop {
         let next_token = inport.next_token();
         match next_token {
-            None => break,
-            Some(Ok(token_str)) => match inport.read_exp(Some(Ok(token_str))) {
+            Ok(None) => break,
+            Ok(Some(token_str)) => match inport.read_exp(Ok(Some(token_str))) {
                 Ok(exp) => {
                     let val = eval(exp, Rc::clone(&global_env));
                     writeln!(outport, "=> {:?}", val)?;
@@ -22,7 +22,7 @@ pub fn repl(
                     writeln!(outport, "Error: {:?}", e)?;
                 }
             },
-            Some(e) => {
+            Err(e) => {
                 eprintln!("Readline Error: {:?}", e);
                 break;
             }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod helper {
     use crate::eval_apply::eval;
-    use crate::parser::{InPort, TOKENIZER};
+    use crate::parser::InPort;
     use crate::prelude::{get_prelude, make_env_ptr};
     use crate::types::*;
     use std::cell::RefCell;
@@ -9,58 +9,32 @@ mod helper {
     use std::rc::Rc;
 
     struct MockInput<'a> {
-        line: String,
+        line: Option<String>,
         lines: RefCell<std::str::Lines<'a>>,
     }
 
     impl<'a> MockInput<'a> {
         fn new(input: &'a str) -> Self {
             Self {
-                line: String::new(),
+                line: Some("".into()),
                 lines: RefCell::new(input.lines()),
             }
         }
     }
 
     impl<'a> InPort for MockInput<'a> {
-        fn line(&self) -> String {
+        fn line(&self) -> Option<String> {
             self.line.clone()
         }
 
-        fn set_line(&mut self, new_line: &str) {
-            self.line = new_line.into();
+        fn set_line(&mut self, new_line: Option<String>) {
+            self.line = new_line
         }
 
-        fn read_line(&self) -> Option<Result<String, Box<dyn Error>>> {
+        fn read_line(&self) -> Result<Option<String>, Box<dyn Error>> {
             match self.lines.borrow_mut().next() {
-                Some(line) => (Some(Ok(line.into()))),
-                None => None,
-            }
-        }
-
-        fn next_token(&mut self) -> Option<Result<String, Box<dyn Error>>> {
-            loop {
-                if &self.line == "" {
-                    self.line = match self.read_line() {
-                        Some(Ok(line)) => line,
-                        None => String::new(),
-                        _ => unreachable!(),
-                    };
-                }
-                if &self.line == "" {
-                    return None;
-                } else {
-                    let next = TOKENIZER.captures_iter(&self.line).next();
-                    let (token, rest) = match next {
-                        Some(cap) => (String::from(&cap[1]), String::from(&cap[2])),
-                        None => unreachable!(),
-                    };
-                    self.line = rest;
-                    match token.chars().nth(0) {
-                        Some(';') | None => (),
-                        _ => return Some(Ok(token.into())),
-                    };
-                }
+                Some(line) => Ok(Some(line.into())),
+                None => Ok(None),
             }
         }
     }
