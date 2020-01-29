@@ -38,6 +38,8 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
 
             match head.as_ref() {
                 "quote" => match tail.first() {
+                    // ! This is a WRONG quote.
+                    // TODO: implement proper cons structure.
                     Some(res) => Ok(res.clone()),
                     None => Err(ScmErr::from("quote: nothing to quote")),
                 },
@@ -48,7 +50,7 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                     let closure = ScmClosure {
                         body: Box::new(tail),
                         env: Env::from_outer(Some(Rc::clone(&env))),
-                        // ! Here we want to clone a pointer, not to clone an Env.
+                        // Here we want to clone a pointer, not to clone an Env.
                     };
                     Ok(Exp::Closure(closure))
                 }

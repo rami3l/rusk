@@ -7,11 +7,16 @@ use std::process;
 // All primitive operators are fn(&[Exp]) -> Option<Exp>
 // in order to fit into Exp::Primitive(fn(&[Exp]) -> Option<Exp>)
 
-fn add(pair: &[Exp]) -> Result<Exp, ScmErr> {
-    match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a + b)),
-        _ => Err(ScmErr::from("add: expected Exp::Number")),
+fn add(args: &[Exp]) -> Result<Exp, ScmErr> {
+    let mut res = 0 as f64;
+    for arg in args {
+        if let &Exp::Number(x) = arg {
+            res += x;
+        } else {
+            return Err(ScmErr::from("add: expected Exp::Number"));
+        }
     }
+    Ok(Exp::Number(res))
 }
 
 fn sub(pair: &[Exp]) -> Result<Exp, ScmErr> {
@@ -21,11 +26,16 @@ fn sub(pair: &[Exp]) -> Result<Exp, ScmErr> {
     }
 }
 
-fn mul(pair: &[Exp]) -> Result<Exp, ScmErr> {
-    match pair {
-        &[Exp::Number(a), Exp::Number(b)] => Ok(Exp::Number(a * b)),
-        _ => Err(ScmErr::from("mul: expected Exp::Number")),
+fn mul(args: &[Exp]) -> Result<Exp, ScmErr> {
+    let mut res = 1 as f64;
+    for arg in args {
+        if let &Exp::Number(x) = arg {
+            res *= x;
+        } else {
+            return Err(ScmErr::from("mul: expected Exp::Number"));
+        }
     }
+    Ok(Exp::Number(res))
 }
 
 fn div(pair: &[Exp]) -> Result<Exp, ScmErr> {
