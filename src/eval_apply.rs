@@ -84,19 +84,17 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                         Exp::Symbol(res) => res,
                         _ => return Err(ScmErr::from("set!: expected Symbol")),
                     };
+
+                    // Find the innermost Env in which a symbol is defined starting from the current Env.
                     let target: RcRefCell<Env> = {
                         let mut current = Rc::clone(&env);
                         loop {
                             let outer = match &current.borrow().outer {
                                 Some(x) => Rc::clone(&x),
-                                None => {
-                                    break Rc::clone(&current);
-                                }
+                                None => break Rc::clone(&current),
                             };
                             match current.borrow().data.get(&key) {
-                                Some(_) => {
-                                    break Rc::clone(&current);
-                                }
+                                Some(_) => break Rc::clone(&current),
                                 None => (),
                             };
                             current = outer;

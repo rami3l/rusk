@@ -1,5 +1,5 @@
 use super::{Env, ScmErr};
-use std::fmt::{self, Write};
+use std::fmt;
 
 /// The Scheme Expression type.
 #[derive(Clone)]
@@ -21,22 +21,11 @@ pub enum Exp {
 
 impl fmt::Display for Exp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn show_list(l: &Vec<Exp>) -> String {
-            let mut res: String = "(".into();
-            for item in l {
-                res.write_fmt(format_args!("{} . ", item)).unwrap();
-            }
-            res.pop(); // Pop off " "
-            res.pop(); // Pop off ","
-            res.push(')');
-            res
-        }
-
         let res = match self {
             Exp::Bool(b) => format!("{}", b),
             Exp::Symbol(s) => format!("'{}", s),
             Exp::Number(n) => format!("{}", n),
-            Exp::List(l) => show_list(l),
+            Exp::List(l) => format!("{:?}", l),
             Exp::Closure(_) => "<Closure>".into(),
             Exp::Primitive(_) => "<Primitive>".into(),
             Exp::Empty => "()".into(),
