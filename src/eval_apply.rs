@@ -170,7 +170,7 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 }
             }
         }
-        _ => Err(ScmErr::from("eval: expected Exp")),
+        _ => Err(ScmErr::from("eval: unexpected Exp")),
     }
 }
 
