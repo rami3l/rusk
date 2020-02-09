@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
     match exp {
-        Exp::Number(_) => Ok(exp),
+        Exp::Number(n) => Ok(Exp::Number(n)),
         Exp::Symbol(s) => match env.borrow().lookup(&Exp::Symbol(s.clone())) {
             Some(res) => Ok(res),
             None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),

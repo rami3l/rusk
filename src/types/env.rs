@@ -23,10 +23,7 @@ impl Env {
         match symbol {
             Exp::Symbol(s) => match self.data.get(s) {
                 Some(def) => Some(def.clone()),
-                None => match &self.outer {
-                    Some(outer) => outer.borrow().lookup(symbol),
-                    None => None,
-                },
+                None => self.outer.as_ref().and_then(|o| o.borrow().lookup(symbol)),
             },
             _ => None,
         }
