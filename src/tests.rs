@@ -15,7 +15,7 @@ mod helper {
 
     impl<'a> MockInput<'a> {
         fn new(input: &'a str) -> Self {
-            Self {
+            MockInput {
                 line: Some("".into()),
                 lines: RefCell::new(input.lines()),
             }

@@ -6,7 +6,7 @@ pub struct ScmErr {
 
 impl ScmErr {
     pub fn from(reason: &str) -> Self {
-        Self {
+        ScmErr {
             reason: String::from(reason),
         }
     }

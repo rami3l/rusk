@@ -12,7 +12,7 @@ pub struct InFile {
 
 impl InFile {
     pub fn new(file_str: &str) -> Self {
-        Self {
+        InFile {
             file_str: file_str.into(),
             line: Some("".into()),
             reader: {

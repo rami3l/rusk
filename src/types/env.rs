@@ -12,7 +12,7 @@ pub struct Env {
 
 impl Env {
     pub fn from_outer(outer: Option<RcRefCell<Env>>) -> Self {
-        Self {
+        Env {
             data: HashMap::new(),
             outer,
         }

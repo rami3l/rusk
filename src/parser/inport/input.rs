@@ -14,7 +14,7 @@ pub struct Input {
 
 impl Input {
     pub fn new() -> Self {
-        Self {
+        Input {
             line: Some("".into()),
             editor: RefCell::new(rustyline::Editor::<()>::new()),
             // count: 0,
