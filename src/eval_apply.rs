@@ -4,17 +4,19 @@ use std::rc::Rc;
 
 pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
     match exp {
-        Exp::Number(n) => Ok(Exp::Number(n)),
-        Exp::Symbol(s) => match env.borrow().lookup(&Exp::Symbol(s.clone())) {
-            Some(res) => Ok(res),
-            None => Err(ScmErr::from(&format!("eval: Symbol \"{}\" undefined", s))),
-        },
+        n @ Exp::Number(_) => Ok(n),
+
+        ref s @ Exp::Symbol(_) => env
+            .borrow()
+            .lookup(s)
+            .ok_or(ScmErr::from(&format!("eval: Symbol {} undefined", s))),
+
         Exp::List(list) => {
             if list.is_empty() {
                 return Err(ScmErr::from("eval: expect a non-empty list"));
             }
 
-            let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
+            // let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
             let tail = &list[1..];
 
             // A tiny closure to send a lambda expression to apply
@@ -37,12 +39,12 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
             };
 
             match head.as_ref() {
-                "quote" => match tail.first() {
-                    // ! This is a WRONG quote.
-                    // TODO: implement proper cons structure.
-                    Some(res) => Ok(res.clone()),
-                    None => Err(ScmErr::from("quote: nothing to quote")),
-                },
+                // ! This is a WRONG quote.
+                // TODO: implement proper cons structure.
+                "quote" => tail
+                    .first()
+                    .ok_or_else(|| ScmErr::from("quote: nothing to quote"))
+                    .map(|i| i.clone()),
 
                 "lambda" => {
                     let tail: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
