@@ -16,7 +16,6 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 return Err(ScmErr::from("eval: expect a non-empty list"));
             }
 
-            // let list: Vec<Exp> = list.iter().map(|x| x.clone()).collect();
             let tail = &list[1..];
 
             // A tiny closure to send a lambda expression to apply
@@ -31,9 +30,9 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
 
             let head = match list.first() {
                 Some(Exp::Symbol(res)) => res,
-                Some(Exp::List(_)) => {
+                Some(lambda @ Exp::List(_)) => {
                     // head is an inline lambda expression
-                    return handle_lambda(list[0].clone());
+                    return handle_lambda(lambda.clone());
                 }
                 _ => return Err(ScmErr::from("eval: head of the list is not a function")),
             };
@@ -48,9 +47,8 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
 
                 "lambda" => {
                     let tail: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
-                    let tail = Exp::List(tail);
                     let closure = ScmClosure {
-                        body: Box::new(tail),
+                        body: Box::new(Exp::List(tail)),
                         env: Env::from_outer(Some(Rc::clone(&env))),
                         // Here we want to clone a pointer, not to clone an Env.
                     };
@@ -60,7 +58,7 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 "define" => {
                     match tail {
                         [symbol, definition] => {
-                            let symbol_str = match symbol.clone() {
+                            let symbol_str = match symbol {
                                 Exp::Symbol(res) => res.clone(),
                                 _ => return Err(ScmErr::from("define: expected Symbol")),
                             };
