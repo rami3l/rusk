@@ -71,14 +71,14 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 "set!" => {
-                    let symbol = match tail.get(0) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("set!: nothing to set!")),
-                    };
-                    let definition = match tail.get(1) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("set!: nothing to set!")),
-                    };
+                    let symbol = tail
+                        .get(0)
+                        .ok_or(ScmErr::from("set!: nothing to set!"))?
+                        .clone();
+                    let definition = tail
+                        .get(1)
+                        .ok_or(ScmErr::from("set!: nothing to set!"))?
+                        .clone();
                     let eval_definition = eval(definition, Rc::clone(&env))?;
                     let key = match symbol.clone() {
                         Exp::Symbol(res) => res,
@@ -113,18 +113,18 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 }
 
                 "if" => {
-                    let condition = match tail.get(0) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("if: missing condition")),
-                    };
-                    let then_ = match tail.get(1) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("if: missing then clause")),
-                    };
-                    let else_ = match tail.get(2) {
-                        Some(res) => res.clone(),
-                        None => return Err(ScmErr::from("if: missing else clause")),
-                    };
+                    let condition = tail
+                        .get(0)
+                        .ok_or(ScmErr::from("if: missing condition"))?
+                        .clone();
+                    let then_ = tail
+                        .get(1)
+                        .ok_or(ScmErr::from("if: missing then clause"))?
+                        .clone();
+                    let else_ = tail
+                        .get(2)
+                        .ok_or(ScmErr::from("if: missing else clause"))?
+                        .clone();
                     // return eval(then_ if eval(condition, env) else else_, env)
                     match eval(condition, Rc::clone(&env)) {
                         Ok(Exp::Bool(true)) => eval(then_, env),
@@ -139,10 +139,10 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                             Exp::List(res) => res.clone(),
                             _ => return Err(ScmErr::from("cond: expected pairs")),
                         };
-                        let then_ = match pair.get(1) {
-                            Some(res) => res.clone(),
-                            None => return Err(ScmErr::from("cond: missing then clause")),
-                        };
+                        let then_ = pair
+                            .get(1)
+                            .ok_or(ScmErr::from("cond: missing then clause"))?
+                            .clone();
                         let condition = match pair.get(0) {
                             Some(Exp::Symbol(s)) => match s.as_ref() {
                                 "else" => return eval(then_, env),
