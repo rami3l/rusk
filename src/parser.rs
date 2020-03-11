@@ -60,15 +60,15 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                 };
                                 args = {
                                     let args_list: Vec<Exp> =
-                                        f_args.iter().skip(1).map(|x| x.clone()).collect();
+                                        f_args.iter().skip(1).cloned().collect();
                                     Exp::List(args_list)
                                 };
-                                body = list.iter().skip(2).map(|x| x.clone()).collect();
+                                body = list.iter().skip(2).cloned().collect();
                                 desugar(Exp::List({
                                     let lambda_args_body: Vec<Exp> =
                                         [Exp::Symbol("lambda".into()), args]
                                             .iter()
-                                            .map(|x| x.clone())
+                                            .cloned()
                                             .chain(body.into_iter())
                                             .collect();
                                     let res: Vec<Exp> = [
@@ -77,7 +77,7 @@ pub fn desugar(exp: Exp) -> Result<Exp, ScmErr> {
                                         Exp::List(lambda_args_body),
                                     ]
                                     .iter()
-                                    .map(|x| x.clone())
+                                    .cloned()
                                     .collect();
                                     // println!("Sugar debug: {:?}", res);
                                     res
@@ -130,7 +130,7 @@ mod tests {
             Exp::Number(2 as f64),
         ]
         .iter()
-        .map(|x| x.clone())
+        .cloned()
         .collect();
         let left = match parse(left) {
             Ok(Exp::List(l)) => l,

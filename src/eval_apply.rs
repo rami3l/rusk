@@ -43,10 +43,10 @@ pub fn eval(exp: Exp, env: RcRefCell<Env>) -> Result<Exp, ScmErr> {
                 "quote" => tail
                     .first()
                     .ok_or_else(|| ScmErr::from("quote: nothing to quote"))
-                    .map(|i| i.clone()),
+                    .cloned(),
 
                 "lambda" => {
-                    let tail: Vec<Exp> = tail.iter().map(|x| x.clone()).collect();
+                    let tail: Vec<Exp> = tail.iter().cloned().collect();
                     let closure = ScmClosure {
                         body: Box::new(Exp::List(tail)),
                         env: Env::from_outer(Some(Rc::clone(&env))),

@@ -1,3 +1,5 @@
+#![feature(result_cloned)]
+
 mod eval_apply;
 mod parser;
 mod prelude;
