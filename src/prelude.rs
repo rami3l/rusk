@@ -110,10 +110,7 @@ fn cdr(args: &[Exp]) -> Result<Exp, ScmErr> {
 
 fn cons(pair: &[Exp]) -> Result<Exp, ScmErr> {
     match pair {
-        [a, b] => {
-            let res: Vec<Exp> = [a.clone(), b.clone()].iter().cloned().collect();
-            Ok(Exp::List(res))
-        }
+        [a, b] => Ok(Exp::List([a, b].iter().cloned().cloned().collect())),
         _ => Err(ScmErr::from("cons: expected two Exp to cons")),
     }
 }
